@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useAudioRecorder } from "@/lib/audio/use-audio-recorder";
 
 type Mode = "diagnose" | "billing";
 type LineItem = { id: number; name: string; kind: "Part" | "Labour"; price: number };
@@ -18,66 +19,17 @@ function Icon({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>("diagnose");
-  const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
   const [audioName, setAudioName] = useState("");
+  const { status: recorderStatus, seconds, audioBlob, error: recorderError, start: startRecording, stop: stopRecording } = useAudioRecorder();
+  const recording = recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing";
   const [photoName, setPhotoName] = useState("");
   const [items, setItems] = useState(initialItems);
   const [customer, setCustomer] = useState("Ramesh Kumar");
   const [job, setJob] = useState("AC is running, but not cooling properly");
   const [showResult, setShowResult] = useState(true);
   const [notice, setNotice] = useState("");
-  const recorder = useRef<MediaRecorder | null>(null);
-  const stream = useRef<MediaStream | null>(null);
-  const chunks = useRef<Blob[]>([]);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
-
-  useEffect(() => () => {
-    if (timer.current) clearInterval(timer.current);
-    stream.current?.getTracks().forEach((track) => track.stop());
-  }, []);
-
-  const startRecording = async () => {
-    try {
-      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.current = media;
-      chunks.current = [];
-      const mediaRecorder = new MediaRecorder(media);
-      recorder.current = mediaRecorder;
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.current.push(event.data);
-      };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks.current, { type: mediaRecorder.mimeType || "audio/webm" });
-        setAudioName(`Voice note · ${(blob.size / 1024).toFixed(0)} KB`);
-        media.getTracks().forEach((track) => track.stop());
-      };
-      mediaRecorder.start();
-      setSeconds(0);
-      setRecording(true);
-      timer.current = setInterval(() => {
-        setSeconds((value) => {
-          if (value >= 14) {
-            if (timer.current) clearInterval(timer.current);
-            recorder.current?.stop();
-            setRecording(false);
-            return 15;
-          }
-          return value + 1;
-        });
-      }, 1000);
-    } catch {
-      setNotice("Microphone access is unavailable. Check browser permissions or upload an audio file.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (timer.current) clearInterval(timer.current);
-    if (recorder.current?.state === "recording") recorder.current.stop();
-    setRecording(false);
-  };
 
   const total = items.reduce((sum, item) => sum + item.price, 0);
   const addItem = () => setItems((current) => [...current, { id: Date.now(), name: "New line item", kind: "Part", price: 0 }]);
@@ -125,10 +77,11 @@ export default function Home() {
                   <p className="panel-copy">Explain the symptoms in your own words. Hindi, English or Hinglish — whatever works.</p>
                   <div className={`record-zone ${recording ? "is-recording" : ""}`}>
                     <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? stopRecording : startRecording} aria-label={recording ? "Stop recording" : "Start recording"}><span>{recording ? "■" : "🎙"}</span></button>
-                    <strong>{recording ? "Listening… tap to stop" : audioName ? "Voice note captured" : "Tap to speak"}</strong>
+                    <strong>{recording ? "Listening… tap to stop" : audioBlob || audioName ? "Voice note captured" : "Tap to speak"}</strong>
                     <small>{recording ? `00:${String(seconds).padStart(2, "0")} / 00:15` : audioName || "Up to 15 seconds · Speak naturally"}</small>
                     {recording && <div className="waveform">{Array.from({ length: 31 }, (_, i) => <i key={i} style={{ height: `${10 + ((i * 17) % 28)}px` }} />)}</div>}
                   </div>
+                  {recorderError && <p className="file-picked" role="alert">{recorderError}</p>}
                   <div className="or-divider"><span /> OR <span /></div>
                   <button className="upload-audio" onClick={() => audioInput.current?.click()}><Icon>↑</Icon><span><strong>Upload an audio clip</strong><small>WAV, MP3 or M4A · Max 2 MB</small></span><b>Browse files</b></button>
                   <input ref={audioInput} type="file" accept="audio/*" hidden onChange={(e) => setAudioName(e.target.files?.[0]?.name || "")} />
