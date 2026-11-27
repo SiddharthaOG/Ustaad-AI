@@ -21,7 +21,7 @@ User gesture
 
 ### Modules
 
-- `public/audio/pcm-capture-processor.js`: captures mono Float32 frames through AudioWorklet.
+- `public/audio/pcm-capture-processor.js`: captures mono Float32 frames through AudioWorklet and emits a throttled RMS input level for the live microphone signal.
 - `src/lib/audio/wav.ts`: resampling, PCM16 WAV encoding and capture limits.
 - `src/lib/audio/use-audio-recorder.ts`: permission handling, recorder lifecycle, timer, cleanup, output Blob and preview URL.
 - `src/lib/audio/audio-file.ts`: pre-validates uploaded WAV, MP3 and M4A files by size, extension and basic container/codec signatures.

@@ -17,6 +17,7 @@ function getMicrophoneError(error: unknown): string {
 export function useAudioRecorder() {
   const [status, setStatus] = useState<AudioRecorderStatus>("idle");
   const [seconds, setSeconds] = useState(0);
+  const [inputLevel, setInputLevel] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState("");
   const audioUrlRef = useRef("");
@@ -78,6 +79,7 @@ export function useAudioRecorder() {
       setSeconds(Math.min(MAX_RECORDING_SECONDS, Math.ceil(duration)));
       setError("");
       setStatus("ready");
+      setInputLevel(0);
     } catch (caught) {
       setError(getMicrophoneError(caught));
       setStatus("error");
@@ -97,6 +99,7 @@ export function useAudioRecorder() {
     setAudioUrl("");
     setError("");
     setSeconds(0);
+    setInputLevel(0);
     framesRef.current = [];
     frameCountRef.current = 0;
     stoppingRef.current = false;
@@ -117,9 +120,15 @@ export function useAudioRecorder() {
       const worklet = new AudioWorkletNode(context, "pcm-capture-processor", { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1, channelCountMode: "explicit", channelInterpretation: "speakers" });
       const silentGain = context.createGain();
       silentGain.gain.value = 0;
-      worklet.port.onmessage = (event: MessageEvent<Float32Array>) => {
-        const frame = event.data;
-        if (!(frame instanceof Float32Array) || !recordingRef.current) return;
+      worklet.port.onmessage = (event: MessageEvent<{ type: "audio"; frame: Float32Array } | { type: "level"; level: number }>) => {
+        const message = event.data;
+        if (!recordingRef.current) return;
+        if (message.type === "level") {
+          setInputLevel(Math.max(0, Math.min(1, message.level * 5)));
+          return;
+        }
+        const frame = message.frame;
+        if (!(frame instanceof Float32Array)) return;
         framesRef.current.push(frame);
         frameCountRef.current += frame.length;
         if (frameCountRef.current >= context.sampleRate * MAX_RECORDING_SECONDS) void stop();
@@ -155,11 +164,12 @@ export function useAudioRecorder() {
     audioUrlRef.current = "";
     setAudioUrl("");
     setSeconds(0);
+    setInputLevel(0);
     setError("");
     setStatus("idle");
   }, [releaseResources]);
 
   useEffect(() => () => { void releaseResources(); if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current); }, [releaseResources]);
 
-  return { status, seconds, audioBlob, audioUrl, error, start, stop, clear };
+  return { status, seconds, inputLevel, audioBlob, audioUrl, error, start, stop, clear };
 }

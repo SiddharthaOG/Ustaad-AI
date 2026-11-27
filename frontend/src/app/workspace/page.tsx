@@ -22,13 +22,13 @@ function Icon({ children }: { children: React.ReactNode }) {
 export default function Home() {
   const [mode, setMode] = useState<Mode>("diagnose");
   const [audioName, setAudioName] = useState("");
-  const { status: recorderStatus, seconds, audioBlob, audioUrl: recordedAudioUrl, error: recorderError, start: startRecording, stop: stopRecording, clear: clearRecording } = useAudioRecorder();
+  const { status: recorderStatus, seconds, inputLevel, audioBlob, audioUrl: recordedAudioUrl, error: recorderError, start: startRecording, stop: stopRecording, clear: clearRecording } = useAudioRecorder();
   const liveTranscript = useLiveTranscript();
   const [transcriptLanguage, setTranscriptLanguage] = useState<"hi-IN" | "en-IN">("hi-IN");
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
   const [audioValidationError, setAudioValidationError] = useState("");
   const [liveTextEnabled, setLiveTextEnabled] = useState(false);
-  const recording = recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing";
+  const recording = recorderStatus === "recording";
   const [photoName, setPhotoName] = useState("");
   const [items, setItems] = useState(initialItems);
   const [customer, setCustomer] = useState("Ramesh Kumar");
@@ -105,6 +105,7 @@ export default function Home() {
                 <section className="panel capture-panel">
                   <div className="panel-heading"><div><span className="step-label">STEP 01 · TELL US THE PROBLEM</span><h2>Talk to Ustaad</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
                   <p className="panel-copy">Explain the symptoms in your own words. Hindi, English or Hinglish — whatever works.</p>
+                  {(recording || recorderStatus === "requesting") && <div className={`recording-signal ${recording ? "is-live" : "is-requesting"}`} role="status" aria-live="polite"><span className="recording-signal-dot" /><span className="recording-signal-label">{recording ? "Ustaad is listening" : "Connecting to your microphone…"}</span>{recording && <span className="input-meter" aria-label={inputLevel > 0.015 ? "Microphone input detected" : "Waiting for microphone input"}>{Array.from({ length: 12 }, (_, index) => <i key={index} className={inputLevel > (index + 1) / 16 ? "active" : ""} />)}</span>}{recording && <span className="recording-signal-hint">{inputLevel > 0.015 ? "Voice input detected" : "Speak to test your mic"}</span>}</div>}
                   <div className={`record-zone ${recording ? "is-recording" : ""}`}>
                     <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? endRecording : beginRecording} aria-label={recording ? "Stop recording" : "Start recording"}><span>{recording ? "■" : "🎙"}</span></button>
                     <strong>{recording ? "Listening… tap to stop" : audioBlob || audioName ? "Voice note captured" : "Tap to speak"}</strong>
@@ -141,6 +142,7 @@ export default function Home() {
                 <div className="panel-heading"><div><span className="step-label">STEP 01 · DESCRIBE THE JOB</span><h2>What work did you do?</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
                 <p className="panel-copy">Say the parts used and labour charged. You can edit every line before sharing.</p>
                 <textarea value={liveTranscript.transcript || job} onChange={(e) => { setJob(e.target.value); liveTranscript.setTranscript(e.target.value); }} aria-label="Job description" />
+                {(recording || recorderStatus === "requesting") && <div className={`recording-signal billing-recording-signal ${recording ? "is-live" : "is-requesting"}`} role="status" aria-live="polite"><span className="recording-signal-dot" /><span className="recording-signal-label">{recording ? "Ustaad is listening" : "Connecting to your microphone…"}</span>{recording && <span className="input-meter" aria-label={inputLevel > 0.015 ? "Microphone input detected" : "Waiting for microphone input"}>{Array.from({ length: 12 }, (_, index) => <i key={index} className={inputLevel > (index + 1) / 16 ? "active" : ""} />)}</span>}{recording && <span className="recording-signal-hint">{inputLevel > 0.015 ? "Voice input detected" : "Speak to test your mic"}</span>}</div>}
                 <div className="bill-voice-row"><button className="small-record" onClick={recording ? endRecording : beginRecording}>{recording ? "Stop recording" : "Speak"}</button><span>{recording ? `Recording 00:${String(seconds).padStart(2, "0")}` : liveTranscript.interim ? `Hearing: ${liveTranscript.interim}` : "Or type the job details above"}</span><label className="bill-live-toggle"><input type="checkbox" checked={liveTextEnabled} onChange={(event) => { setLiveTextEnabled(event.target.checked); if (event.target.checked && recording) liveTranscript.start(transcriptLanguage); else if (!event.target.checked) liveTranscript.stop(); }} /> Live text</label><button className="text-action" onClick={() => setNotice("Demo bill extraction refreshed from the sample description.")}>Extract items</button></div>
                 {audioUrl && <div className="audio-review"><strong>Review recording</strong><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported.</audio><div className="audio-review-actions"><button type="button" onClick={() => { clearAudio(); beginRecording(); }}>Retake</button><button type="button" onClick={clearAudio}>Clear</button></div></div>}
               </section>
