@@ -1,8 +1,8 @@
-﻿# Browser Audio Pipeline - v0.2
+# Browser Audio and Media Pipeline - v0.3
 
 ## Scope
 
-Person A owns browser-side capture, review, upload pre-validation and transcript preview for the Diagnose and Billing golden paths. This layer does not call the backend, perform semantic diagnosis, calculate bills, or persist recordings.
+Person A owns browser-side capture, review, upload pre-validation and optional transcript preview for the Diagnose and Billing golden paths. The browser validates media before submission, but the backend must repeat all security- and correctness-critical checks. The frontend does not perform semantic diagnosis or authoritative bill arithmetic.
 
 ## Capture architecture
 
@@ -14,59 +14,76 @@ User gesture
   -> bounded in-memory buffer (maximum 15 seconds)
   -> resample to 16 kHz
   -> encode signed PCM16 WAV
-  -> validate duration and <= 2 MiB output
+  -> strict WAV validation
   -> review / playback / retake / clear
-  -> later: approved multipart API contract
+  -> multipart API request
 ```
 
-### Modules
+## Modules
 
-- `public/audio/pcm-capture-processor.js`: captures mono Float32 frames through AudioWorklet and emits a throttled RMS input level for the live microphone signal.
-- `src/lib/audio/wav.ts`: resampling, PCM16 WAV encoding and capture limits.
-- `src/lib/audio/use-audio-recorder.ts`: permission handling, recorder lifecycle, timer, cleanup, output Blob and preview URL.
-- `src/lib/audio/audio-file.ts`: pre-validates uploaded WAV, MP3 and M4A files by size, extension and basic container/codec signatures.
-- `src/lib/audio/use-live-transcript.ts`: optional Web Speech API transcript preview for `hi-IN` or `en-IN`.
-- `tests/audio.test.mjs` plus `scripts/test-audio.mjs`: Node built-in tests, compiling the pure TypeScript modules into a temporary directory first.
-- `src/app/workspace/page.tsx`: presentation and user actions; no DSP or encoding logic.
+- public/audio/pcm-capture-processor.js: captures mono Float32 frames through AudioWorklet and emits a throttled RMS input level for the live microphone signal.
+- src/lib/audio/wav.ts: resampling, PCM16 WAV encoding and capture limits.
+- src/lib/audio/use-audio-recorder.ts: permission handling, recorder lifecycle, timer, cleanup, output Blob and preview URL.
+- src/lib/media-validation.ts: shared strict validation for diagnosis and billing uploads. It checks PCM WAV structure and JPEG size/type/signatures before requests.
+- src/lib/audio/audio-file.ts: legacy signature-sniffing helper retained for isolated format tests; its MP3/M4A support is not exposed by the MVP diagnosis or billing upload controls.
+- src/lib/audio/use-live-transcript.ts: optional Web Speech API transcript preview for hi-IN or en-IN.
+- src/app/workspace/page.tsx: diagnosis presentation and user actions.
+- src/app/workspace/billing-workflow.tsx: billing capture, extraction, editing, confirmation and local draft workflow.
 
-## Audio upload rules
+## MVP media rules
 
-- Allowed filename extensions: `.wav`, `.mp3`, `.m4a`.
-- File must be non-empty and no larger than 2 MiB.
-- Extension must match the inspected file signature.
-- WAV must have a RIFF/WAVE header, a complete header and PCM integer (format 1) or IEEE-float (format 3) codec marker.
-- MP3 is checked for an MPEG audio frame sync, including after an ID3 tag.
-- M4A is checked for an ISO base-media `ftyp` marker and a supported major brand.
-- These are frontend preflight checks, not full media decoding. The backend must independently validate, decode and normalize uploaded media. This frontend does not transcode uploaded MP3/M4A files.
+### Audio
+
+- Diagnose and Billing accept PCM WAV only.
+- Maximum file size: 2 MiB.
+- Maximum duration: 15 seconds.
+- Required encoding: uncompressed PCM16, mono, 16,000 Hz.
+- The validator parses RIFF chunks instead of assuming a fixed 44-byte header. It checks the RIFF/WAVE signature and declared length, format/data chunks, codec, channel count, sample rate, bit depth, byte rate, block alignment, complete sample frames and duration.
+- Empty, truncated, malformed, oversized, unsupported-codec and extension/MIME-mismatched files are rejected with actionable messages.
+- Uploaded MP3 and M4A are not accepted by the MVP UI. The backend must independently validate and decode all received media.
+
+### Image
+
+- Optional diagnosis image: JPEG only (.jpg / .jpeg, image/jpeg).
+- Maximum file size: 1.5 MiB.
+- The frontend checks the extension, MIME type, JPEG start/end markers and attempts browser decoding with createImageBitmap where available.
+- The UI provides preview, replacement and removal. The backend must independently validate and decode the image; client-side checks are not a security boundary.
 
 ## Transcript preview and correctness
 
 - Live transcription is opt-in. The browser speech provider may process audio outside Ustaad; the UI discloses this before enabling it.
-- The browser API is not consistently available and may differ by browser/device. The preview currently offers Hindi (`hi-IN`) and Indian English (`en-IN`); mixed Hindi-English recognition quality is not guaranteed.
+- The browser API is not consistently available and may differ by browser/device. The preview currently offers Hindi (hi-IN) and Indian English (en-IN); mixed Hindi-English recognition quality is not guaranteed.
 - The transcript is editable and must be treated as a draft, not as a verified record of what the technician said.
-- The frontend does not claim semantic correctness. Model names, error codes, quantities and prices must be reviewed by the user. After backend integration, ambiguity must be represented using the contract's `needs_confirmation` and `confirm_question` fields; missing bill prices must remain unconfirmed.
+- The frontend does not claim semantic correctness. Model names, error codes, quantities and prices must be reviewed by the user. Diagnosis responses are normalized defensively; missing KB identity forces an unverified state and repair steps are withheld.
 - No translation engine is implemented here. Translation or language normalization must be an explicit backend/product decision, not an invisible rewrite of the technician's words.
 
 ## Privacy and lifecycle
 
 - Recorded WAV remains in browser memory and is not written to localStorage, IndexedDB or disk.
+- Recent bill drafts may be stored in localStorage, but audio and image bytes are never stored there.
 - Microphone tracks and AudioContext are released on stop, clear, error and unmount.
 - Object URLs are revoked when previews are replaced, cleared or unmounted.
-- The optional browser speech preview is a separate third-party/browser-controlled processing path and requires explicit opt-in.
+- The optional browser speech preview is a separate browser-controlled processing path and requires explicit opt-in.
 
 ## Automated checks
 
-Run `npm run test:audio` from `frontend`. Tests currently cover:
+Run npm test from frontend. It currently runs:
 
-1. 48 kHz to 16 kHz resampling.
-2. PCM16 mono 16 kHz WAV headers and expected size.
-3. WAV, MP3 and M4A signatures.
-4. Unsupported extension, empty and oversized files.
-5. Extension/signature mismatch and unsupported WAV codec.
-6. Truncated WAV rejection and the 15-second / 2 MiB limits.
+1. test:audio: resampling, PCM16 WAV encoding and legacy signature-helper checks.
+2. test:media: strict WAV validation, 15-second boundary, RIFF chunk parsing, malformed/truncated audio, codec/channel/sample-rate/size checks and JPEG extension/MIME/signature/size checks.
+3. test:diagnosis: demo scenarios, incomplete response normalization, KB grounding fail-closed behaviour and four-step cap.
+4. test:billing: missing-price handling, demo-only total calculation, decimal quantity rounding, WhatsApp text and numeric overflow.
 
-Speech-to-text accuracy, translation and real codec decoding are not covered by these unit tests. `source-pack/test_clips_diagnose.csv` and `source-pack/test_clips_billing.csv` provide expected spoken phrases and expected interpretation fields, but they are text scripts rather than recorded audio. `source-pack/make_synthetic_clips.py` can generate synthetic TTS WAVs for pipeline testing; keep generated clips outside the hackathon repository and do not use synthetic results to claim real-world accuracy. Real accuracy requires browser/device tests with recordings from technicians and the backend's chosen transcription/decoding implementation.
+These tests do not establish speech-to-text accuracy or real browser codec/device behaviour. source-pack/test_clips_diagnose.csv and source-pack/test_clips_billing.csv provide expected spoken phrases and interpretation fields, but they are text scripts rather than recorded audio. Real accuracy requires browser/device tests with recordings from technicians and the backend's chosen transcription/decoding implementation.
 
 ## API boundary
 
-The existing `api_contract_examples.json` contains response fixtures, not the multipart request schema. Do not invent multipart field names or send files until Person A and Person B freeze the shared API contract. The backend remains authoritative for upload validation, transcript interpretation, safety, bill arithmetic and confirmation rules.
+The central frontend API client uses the frozen contracts:
+
+- GET /health
+- POST /api/diagnose (multipart audio, optional image and language)
+- POST /api/bill (multipart audio and optional customer name)
+- POST /api/bill/confirm (JSON draft items and unsupported mentions)
+- POST /api/tts (JSON text and language; playback remains pending backend support)
+
+The diagnosis and billing workflows are wired to these contracts. Until Person B implements the endpoints, use the explicitly labelled demo scenarios. Demo bill confirmation is a simulated backend response only; production totals and WhatsApp text must come from the backend.

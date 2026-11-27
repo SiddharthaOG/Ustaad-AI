@@ -58,6 +58,7 @@ export async function validateDiagnosisWav(file: File): Promise<MediaValidation>
   if (format.channels !== 1) return { valid: false, message: "Audio must be mono (one channel)." };
   if (format.sampleRate !== 16000) return { valid: false, message: "Audio must be sampled at 16 kHz." };
   if (format.blockAlign !== 2 || format.byteRate !== 32000) return { valid: false, message: "The WAV audio format is inconsistent with 16 kHz mono PCM16." };
+  if (dataBytes % format.blockAlign !== 0) return { valid: false, message: "The WAV audio data ends in a partial PCM sample." };
 
   const durationSeconds = dataBytes / format.byteRate;
   if (durationSeconds > MAX_DIAGNOSIS_AUDIO_SECONDS + 0.05) {
@@ -76,6 +77,14 @@ export async function validateDiagnosisImage(file: File): Promise<MediaValidatio
   const tail = new Uint8Array(await file.slice(Math.max(0, file.size - 2)).arrayBuffer());
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff || tail[0] !== 0xff || tail[1] !== 0xd9) {
     return { valid: false, message: "The image does not contain a complete JPEG signature." };
+  }
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      bitmap.close();
+    } catch {
+      return { valid: false, message: "The JPEG file could not be decoded. Choose a valid image and try again." };
+    }
   }
   return { valid: true, file };
 }
