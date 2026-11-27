@@ -137,7 +137,11 @@ export const ustaadApi = {
     } catch (error) {
       if (error instanceof UstaadApiError) throw error;
       if (timed.signal.aborted) {
-        throw new UstaadApiError(408, null, "Speech generation timed out. Please try again.");
+        const didTimeout = timed.signal.reason?.name === "TimeoutError";
+        throw new UstaadApiError(
+          didTimeout ? 408 : 0, null,
+          didTimeout ? "Speech generation timed out. Please try again." : "The request was cancelled.",
+        );
       }
       if (error instanceof TypeError) {
         throw new UstaadApiError(0, null, "Could not reach Ustaad. Check your connection and try again.");
