@@ -69,6 +69,7 @@ export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings
               <p>{result.confirm_question}</p>
             </div>
           )}
+          {result.needs_confirmation && <div className="source-note" role="status">Answer the clarification before following any repair steps. Ustaad has withheld those steps until the missing detail is confirmed.</div>}
 
           {result.photo_note && (
             <div className="photo-observation"><strong>Photo observation</strong><p>{result.photo_note}</p></div>
@@ -94,10 +95,10 @@ export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings
           )}
 
           {!result.grounded && (
-            <div className="source-note"><span>ⓘ</span> No verified knowledge-base match was returned. Do not treat this as a confirmed diagnosis. Repair steps are withheld until the fault can be verified.</div>
+            <div className="source-note"><span>ⓘ</span> No verifiable knowledge-base identity was returned. Do not treat this as a confirmed diagnosis. Repair steps are withheld until the fault can be verified.</div>
           )}
-          {result.grounded && result.source && (
-            <div className="source-note"><span>ⓘ</span> Reference: {result.source}{result.kb_id ? ` · ${result.kb_id}` : ""}</div>
+          {result.grounded && (result.source || result.kb_id) && (
+            <div className="source-note"><span>ⓘ</span> Reference: {result.source || "Verified knowledge base"}{result.kb_id ? ` · ${result.kb_id}` : ""}</div>
           )}
 
           {result.spoken_summary && (
