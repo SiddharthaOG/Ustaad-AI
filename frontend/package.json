@@ -10,7 +10,8 @@
     "test:audio": "node scripts/test-audio.mjs",
     "test:media": "node scripts/test-media-validation.mjs",
     "test:diagnosis": "node scripts/test-diagnosis.mjs",
-    "test": "npm run test:audio && npm run test:media && npm run test:diagnosis"
+    "test:billing": "node scripts/test-billing-demo.mjs",
+    "test": "npm run test:audio && npm run test:media && npm run test:diagnosis && npm run test:billing"
   },
   "dependencies": {
     "next": "16.4.6",
