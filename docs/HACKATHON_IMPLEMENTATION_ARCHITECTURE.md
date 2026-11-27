@@ -115,10 +115,7 @@ Success response — preserve these field names from `source-pack/api_contract_e
   "safety_alert": "Koi bhi panel kholne ya taar chhune se pehle main MCB band karein.",
   "steps": ["Breaker band karke 5 minute rukein, phir power chalu karein."],
   "spoken_summary": "Pehle main MCB band karein. Phir jaanch karein.",
-  "source": {
-    "title": "LG India - Guide to Error Codes",
-    "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/"
-  },
+  "source": "LG India - Guide to Error Codes",
   "photo_note": null,
   "provider": "gemini",
   "latency_ms": 1234
@@ -128,7 +125,7 @@ Success response — preserve these field names from `source-pack/api_contract_e
 Semantics:
 - `kb_id`, `grounded`, `source`, `error_meaning`, `probable_causes`, and `steps` are backend-owned, not trusted from Gemini.
 - `grounded=true` only if exact approved KB entry has `verified=true`.
-- `source` is `{title,url}` only for grounded results; otherwise null.
+- `source` is a source-title string only for grounded results; otherwise null. Keep the source-pack string shape for compatibility.
 - Unknown response: `grounded=false`, `kb_id=null`, `source=null`, `error_meaning=null`, `probable_causes=[]`, `steps=[]`; use general safety alert and safe spoken explanation.
 - If brand/code is ambiguous, set `needs_confirmation=true`, supply `confirm_question`, and leave diagnosis facts/steps empty.
 - Never exceed four steps.
