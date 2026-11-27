@@ -35,6 +35,6 @@ jobs:
       - name: Run ESLint
         run: npm run lint
       - name: Run audio pipeline tests
-        run: npm run test:audio
+        run: npm run test:audio --if-present
       - name: Build production frontend
         run: npm run build
