@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   frontend:
-    name: Lint, audio tests, and production build
+    name: Lint, frontend tests, and production build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -34,7 +34,7 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
-      - name: Run audio pipeline tests
-        run: npm run test:audio --if-present
+      - name: Run frontend test suite
+        run: npm test
       - name: Build production frontend
         run: npm run build

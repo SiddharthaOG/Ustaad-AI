@@ -179,7 +179,7 @@ export function BillingWorkflow({ active }: { active: boolean }) {
     setExtractionTranscript(typeof response.transcript === "string" ? response.transcript : "");
     setCustomer(typeof response.customer === "string" ? response.customer : customer);
     setProvider(response.provider || (isDemo ? "demo-fixture" : "unknown"));
-    setLatency(typeof response.latency_ms === "number" ? response.latency_ms : null);
+    setLatency(typeof response.latency_ms === "number" ? Math.max(0, response.latency_ms) : null);
     setConfirmedBill(null);
     setDemoMode(isDemo);
     setError("");
@@ -350,10 +350,11 @@ export function BillingWorkflow({ active }: { active: boolean }) {
         <div className="billing-audio-controls">
           <button type="button" className={recording ? "small-record is-recording" : "small-record"} onClick={recording ? stopRecording : startRecording} disabled={loading || confirming || recorder.status === "requesting" || recorder.status === "processing"}>{recording ? "Stop recording" : "Record voice note"}</button>
           <span>{recording ? `Recording · 00:${String(recorder.seconds).padStart(2, "0")} / 00:15` : audioName || "Record or upload a voice note"}</span>
-          <select aria-label="Bill language" value={language} onChange={(event) => { const next = event.target.value as "hi" | "en"; setLanguage(next); if (recording && liveTextEnabled) { liveText.stop(); liveText.start(next === "hi" ? "hi-IN" : "en-IN"); } }}><option value="hi">Hindi / Hinglish</option><option value="en">English</option></select>
+          <select aria-label="Bill language" disabled={loading || confirming} value={language} onChange={(event) => { const next = event.target.value as "hi" | "en"; setLanguage(next); if (recording && liveTextEnabled) { liveText.stop(); liveText.start(next === "hi" ? "hi-IN" : "en-IN"); } }}><option value="hi">Hindi / Hinglish</option><option value="en">English</option></select>
         </div>
         {(recording || recorder.status === "requesting") && <div className={`recording-signal ${recording ? "is-live" : "is-requesting"}`} role="status" aria-live="polite"><span className="recording-signal-dot" /><span className="recording-signal-label">{recording ? "Ustaad is listening" : "Connecting to your microphone…"}</span>{recording && <span className="recording-signal-hint">{recorder.inputLevel > 0.015 ? "Voice input detected" : "Speak to test your mic"}</span>}</div>}
         {recorder.error && <p className="billing-error" role="alert">{recorder.error}</p>}
+        {liveText.transcriptError && <p className="billing-error" role="alert">{liveText.transcriptError}</p>}
         {fileError && <p className="billing-error" role="alert">{fileError}</p>}
         {audioUrl && <div className="audio-review"><strong>Review recording</strong><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported.</audio><div className="audio-review-actions"><button type="button" disabled={loading || confirming} onClick={() => { clearRecording(); startRecording(); }}>Retake</button><button type="button" disabled={loading || confirming} onClick={clearRecording}>Clear</button></div></div>}
         <div className="billing-upload-row">

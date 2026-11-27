@@ -11,7 +11,8 @@
     "test:media": "node scripts/test-media-validation.mjs",
     "test:diagnosis": "node scripts/test-diagnosis.mjs",
     "test:billing": "node scripts/test-billing-demo.mjs",
-    "test": "npm run test:audio && npm run test:media && npm run test:diagnosis && npm run test:billing"
+    "test:api": "node scripts/test-api-client.mjs",
+    "test": "npm run test:audio && npm run test:media && npm run test:diagnosis && npm run test:billing && npm run test:api"
   },
   "dependencies": {
     "next": "16.4.6",

@@ -123,3 +123,5 @@ button:disabled{cursor:not-allowed}
 .status-dot.status-pending{background:#d2a24e;box-shadow:none}
 
 @media(max-width:560px){.topbar-right{gap:7px;font-size:8px}.top-divider,.topbar-right .icon-button{display:none}.topbar-right>span{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+
+@media(prefers-reduced-motion:reduce){.diagnosis-spinner{animation:none!important}}
