@@ -1,177 +1,209 @@
+/* eslint react/no-unescaped-entities: off */
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
-type Mode = "diagnose" | "billing";
-type LineItem = { id: number; name: string; kind: "Part" | "Labour"; price: number };
+type RecognitionResult = { [index: number]: { transcript: string } };
+type RecognitionEvent = { results: RecognitionResult[] };
+type Recognition = {
+  lang: string; interimResults: boolean; onresult: ((event: RecognitionEvent) => void) | null;
+  onend: (() => void) | null; onerror: (() => void) | null; start: () => void; stop: () => void;
+};
 
-const initialItems: LineItem[] = [
-  { id: 1, name: "Capacitor 35µF", kind: "Part", price: 450 },
-  { id: 2, name: "Inspection & fitting", kind: "Labour", price: 350 },
+const steps = [
+  { n: "01", title: "Tell Ustaad", copy: "Say what the machine is doing. No forms, no technical wording needed.", cue: "“The AC is running, but the room isn't cooling.”", icon: "◖" },
+  { n: "02", title: "Show what you see", copy: "Add a photo of the display, component or wiring when it helps.", cue: "A photo gives Ustaad more context.", icon: "▧" },
+  { n: "03", title: "Work through it", copy: "Hear clear checks in Hindi or Hinglish, with safety guidance first.", cue: "Safety warning → checks → your decision.", icon: "≋" },
+  { n: "04", title: "Make the bill", copy: "Speak parts and labour. Check every item, then share the bill.", cue: "You review it before it goes anywhere.", icon: "₹" },
 ];
 
-function Icon({ children }: { children: React.ReactNode }) {
-  return <span className="icon" aria-hidden="true">{children}</span>;
+function Mark() {
+  return <Link href="/" className="wordmark" aria-label="Ustaad AI home"><span className="wordmark-symbol">u.</span><span className="wordmark-name">ustaad<span>.ai</span></span></Link>;
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>("diagnose");
-  const [recording, setRecording] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const [audioName, setAudioName] = useState("");
-  const [photoName, setPhotoName] = useState("");
-  const [items, setItems] = useState(initialItems);
-  const [customer, setCustomer] = useState("Ramesh Kumar");
-  const [job, setJob] = useState("AC is running, but not cooling properly");
-  const [showResult, setShowResult] = useState(true);
-  const [notice, setNotice] = useState("");
-  const recorder = useRef<MediaRecorder | null>(null);
-  const stream = useRef<MediaStream | null>(null);
-  const chunks = useRef<Blob[]>([]);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const photoInput = useRef<HTMLInputElement>(null);
-  const audioInput = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  const [terminalOpen, setTerminalOpen] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [command, setCommand] = useState("");
+  const [messages, setMessages] = useState([{ from: "ustaad", text: "Namaste! I'm here. Ask me to show you around, diagnose a fault, or make a bill." }]);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const recognition = useRef<Recognition | null>(null);
 
-  useEffect(() => () => {
-    if (timer.current) clearInterval(timer.current);
-    stream.current?.getTracks().forEach((track) => track.stop());
+  useEffect(() => {
+    const nodes = document.querySelectorAll<HTMLElement>("[data-reveal]");
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || !("IntersectionObserver" in window)) { nodes.forEach(n => n.classList.add("is-visible")); return; }
+    const observer = new IntersectionObserver(entries => entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add("is-visible"); observer.unobserve(e.target); }
+    }), { threshold: 0.12 });
+    nodes.forEach(n => observer.observe(n));
+    return () => observer.disconnect();
   }, []);
 
-  const startRecording = async () => {
-    try {
-      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.current = media;
-      chunks.current = [];
-      const mediaRecorder = new MediaRecorder(media);
-      recorder.current = mediaRecorder;
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.current.push(event.data);
-      };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks.current, { type: mediaRecorder.mimeType || "audio/webm" });
-        setAudioName(`Voice note · ${(blob.size / 1024).toFixed(0)} KB`);
-        media.getTracks().forEach((track) => track.stop());
-      };
-      mediaRecorder.start();
-      setSeconds(0);
-      setRecording(true);
-      timer.current = setInterval(() => {
-        setSeconds((value) => {
-          if (value >= 14) {
-            if (timer.current) clearInterval(timer.current);
-            recorder.current?.stop();
-            setRecording(false);
-            return 15;
-          }
-          return value + 1;
-        });
-      }, 1000);
-    } catch {
-      setNotice("Microphone access is unavailable. Check browser permissions or upload an audio file.");
+  useEffect(() => () => recognition.current?.stop(), []);
+
+  const runCommand = (raw: string) => {
+    const value = raw.trim();
+    if (!value) return;
+    setMessages(m => [...m, { from: "you", text: value }]);
+    setCommand("");
+    const q = value.toLowerCase();
+    if (/(workflow|how.*work|show.*(me )?(how|workflow)|guide|walkthrough)/.test(q)) {
+      setMessages(m => [...m, { from: "ustaad", text: "Of course. I'll walk you through it, one step at a time." }]);
+      setGuideStep(0); setGuideOpen(true); return;
     }
+    if (/(sign me up|sign up|register|create account|join)/.test(q)) {
+      setMessages(m => [...m, { from: "ustaad", text: "Let's get you started. Opening the sign-up page." }]);
+      router.push("/signup"); return;
+    }
+    if (/(bill|invoice|payment)/.test(q)) {
+      setMessages(m => [...m, { from: "ustaad", text: "Let's put the work into a bill. You can review every item before sharing." }]);
+      router.push("/workspace?mode=bill"); return;
+    }
+    if (/(diagnos|fault|repair|problem|not working)/.test(q)) {
+      setMessages(m => [...m, { from: "ustaad", text: "Let's look at the problem together. Tell me what the machine is doing." }]);
+      router.push("/workspace"); return;
+    }
+    setMessages(m => [...m, { from: "ustaad", text: "I can show the workflow, open diagnosis, or help make a bill. Try saying one of those." }]);
   };
 
-  const stopRecording = () => {
-    if (timer.current) clearInterval(timer.current);
-    if (recorder.current?.state === "recording") recorder.current.stop();
-    setRecording(false);
+  const startListening = () => {
+    const Speech = (window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition });
+    const Engine = Speech.SpeechRecognition || Speech.webkitSpeechRecognition;
+    if (!Engine) {
+      setMessages(m => [...m, { from: "ustaad", text: "Voice input isn't supported in this browser yet. You can type to me here." }]);
+      return;
+    }
+    const rec = new Engine();
+    recognition.current = rec; rec.lang = "hi-IN"; rec.interimResults = false;
+    rec.onresult = event => runCommand(event.results[0][0].transcript);
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    setListening(true); rec.start();
   };
 
-  const total = items.reduce((sum, item) => sum + item.price, 0);
-  const addItem = () => setItems((current) => [...current, { id: Date.now(), name: "New line item", kind: "Part", price: 0 }]);
-  const updateItem = (id: number, patch: Partial<LineItem>) => setItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
-  const removeItem = (id: number) => setItems((current) => current.filter((item) => item.id !== id));
+  const movePhone = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "touch") return;
+    const r = event.currentTarget.getBoundingClientRect();
+    setTilt({ x: ((event.clientY - r.top) / r.height - .5) * -9, y: ((event.clientX - r.left) / r.width - .5) * 10 });
+  };
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="#" aria-label="Ustaad AI home">
-          <span className="brand-mark">u.</span>
-          <span><strong>ustaad<span className="brand-ai">.ai</span></strong><small>THE WORKSHOP COPILOT</small></span>
-        </a>
-        <div className="side-label">WORKSPACE</div>
-        <button className={`side-link ${mode === "diagnose" ? "active" : ""}`} onClick={() => setMode("diagnose")}><Icon>⌕</Icon> Diagnose a fault <span className="side-arrow">↗</span></button>
-        <button className={`side-link ${mode === "billing" ? "active" : ""}`} onClick={() => setMode("billing")}><Icon>▤</Icon> Create a bill <span className="side-arrow">↗</span></button>
-        <div className="sidebar-bottom">
-          <div className="help-card"><span className="help-icon">✳</span><strong>Need a hand?</strong><p>Your workshop assistant is ready when you are.</p><button onClick={() => setNotice("Help centre is coming soon.")}>Get help <span>↗</span></button></div>
-          <div className="profile"><div className="avatar">RK</div><div><strong>Rajesh Kumar</strong><small>Workshop account</small></div><span className="more">···</span></div>
-        </div>
-      </aside>
+    <main className="landing-page" id="top">
+      <header className="site-header"><div className="nav-wrap">
+        <Mark />
+        <nav className="main-nav" aria-label="Main navigation">
+          <a href="#overview">Overview</a>
+          <button className="nav-guide" onClick={() => { setGuideStep(0); setGuideOpen(true); }}>How it works <span>↗</span></button>
+          <a href="#why-ustaad">Why Ustaad</a><a href="#trust">Trust & safety</a>
+        </nav>
+        <Link className="nav-cta" href="/workspace">Try Ustaad <span>↗</span></Link>
+      </div></header>
 
-      <section className="main-area">
-        <header className="topbar">
-          <div className="breadcrumb">Workspace <span>/</span> <strong>{mode === "diagnose" ? "Fault diagnosis" : "New bill"}</strong></div>
-          <div className="topbar-right"><span className="status-dot" /> All systems operational <span className="top-divider" /> <button className="icon-button" aria-label="Notifications">♧</button></div>
-        </header>
-
-        <div className="content">
-          <div className="page-heading">
-            <div><div className="eyebrow">GOOD EVENING, RAJESH <span>✳</span></div><h1>{mode === "diagnose" ? "What are we fixing today?" : "Let’s get that bill ready."}</h1><p>{mode === "diagnose" ? "Tell Ustaad what’s happening. We’ll work through it together." : "Speak the job details. Review the items, make changes, and share."}</p></div>
-            <div className="date-chip"><span>◷</span> Friday, 27 November</div>
+      <section className="hero-section" id="overview">
+        <div className="hero-grid-texture" aria-hidden="true" /><div className="hero-glow hero-glow-one" aria-hidden="true" /><div className="hero-glow hero-glow-two" aria-hidden="true" />
+        <div className="hero-inner">
+          <div className="hero-copy">
+            <div className="eyebrow eyebrow-amber"><span className="eyebrow-line" /> YOUR WORKSHOP, WITH A VOICE <span className="eyebrow-dot">✳</span></div>
+            <h1>Kaam bolo.<br /><span>Ustaad</span> sambhale.</h1>
+            <p className="hero-description">A helpful voice companion for mechanics and field technicians. Talk through a fault, show what you see, and get a clearer next step.</p>
+            <div className="hero-actions"><Link className="button button-amber" href="/workspace">Come on in <span>↗</span></Link><button className="button button-ghost" onClick={() => { setGuideStep(0); setGuideOpen(true); }}><span className="play-icon">▶</span> Take a quick tour</button></div>
+            <div className="hero-proof"><span className="proof-dot" /> Speak naturally <i /> Hindi & Hinglish <i /> You stay in control</div>
           </div>
-
-          <div className="mode-switch" role="tablist" aria-label="Choose a workflow">
-            <button role="tab" aria-selected={mode === "diagnose"} className={mode === "diagnose" ? "selected" : ""} onClick={() => setMode("diagnose")}><span>⌕</span> Diagnose</button>
-            <button role="tab" aria-selected={mode === "billing"} className={mode === "billing" ? "selected" : ""} onClick={() => setMode("billing")}><span>▤</span> Make a bill</button>
-          </div>
-
-          {mode === "diagnose" ? (
-            <div className="workspace-grid">
-              <div className="primary-column">
-                <section className="panel capture-panel">
-                  <div className="panel-heading"><div><span className="step-label">STEP 01 · TELL US THE PROBLEM</span><h2>Talk to Ustaad</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
-                  <p className="panel-copy">Explain the symptoms in your own words. Hindi, English or Hinglish — whatever works.</p>
-                  <div className={`record-zone ${recording ? "is-recording" : ""}`}>
-                    <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? stopRecording : startRecording} aria-label={recording ? "Stop recording" : "Start recording"}><span>{recording ? "■" : "🎙"}</span></button>
-                    <strong>{recording ? "Listening… tap to stop" : audioName ? "Voice note captured" : "Tap to speak"}</strong>
-                    <small>{recording ? `00:${String(seconds).padStart(2, "0")} / 00:15` : audioName || "Up to 15 seconds · Speak naturally"}</small>
-                    {recording && <div className="waveform">{Array.from({ length: 31 }, (_, i) => <i key={i} style={{ height: `${10 + ((i * 17) % 28)}px` }} />)}</div>}
-                  </div>
-                  <div className="or-divider"><span /> OR <span /></div>
-                  <button className="upload-audio" onClick={() => audioInput.current?.click()}><Icon>↑</Icon><span><strong>Upload an audio clip</strong><small>WAV, MP3 or M4A · Max 2 MB</small></span><b>Browse files</b></button>
-                  <input ref={audioInput} type="file" accept="audio/*" hidden onChange={(e) => setAudioName(e.target.files?.[0]?.name || "")} />
-                  <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>A photo of the unit or its error code helps.</small>{photoName && <small className="file-picked">✓ {photoName}</small>}</div><button onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/*" hidden onChange={(e) => setPhotoName(e.target.files?.[0]?.name || "")} /></div>
-                  <button className="primary-button full-button" onClick={() => { setShowResult(true); setNotice("Demo result shown below. Live diagnosis will connect when the backend API is ready."); }}>Analyse the problem <span>→</span></button>
-                  <div className="privacy-note"><Icon>♢</Icon> Your recordings and photos are processed for this request, not stored.</div>
-                </section>
-
-                <section className="panel result-panel">
-                  <div className="result-top"><div><span className="step-label">STEP 02 · USTAAD’S FINDINGS</span><h2>Diagnosis overview</h2></div><span className="demo-tag">SAMPLE RESULT</span></div>
-                  {showResult ? <><div className="fault-title"><div className="fault-icon">⌁</div><div><strong>Possible capacitor issue</strong><small>AC runs, but cooling is weak or absent</small></div><span className="confidence">Needs verification</span></div><div className="safety-alert"><span className="safety-symbol">!</span><div><strong>Safety first</strong><p>Switch off the unit at the mains before opening the panel. Capacitors can retain a dangerous electrical charge even after power is disconnected.</p></div></div><div className="steps-heading">Suggested checks <span>UP TO 4 STEPS</span></div><ol className="repair-steps"><li><span>1</span><div><strong>Isolate the power supply</strong><p>Turn off the MCB and verify the unit is de-energised.</p></div></li><li><span>2</span><div><strong>Inspect the capacitor</strong><p>Look for bulging, leakage or visible damage. Do not touch terminals.</p></div></li><li><span>3</span><div><strong>Test capacitance</strong><p>Use a suitable meter and compare the reading with the rated value.</p></div></li></ol><div className="source-note"><span>ⓘ</span> Sample interface only — no fault code has been verified for a specific model.</div></> : <div className="empty-result">Your diagnosis will appear here after analysis.</div>}
-                </section>
+          <div className="hero-visual" onPointerMove={movePhone} onPointerLeave={() => setTilt({ x: 0, y: 0 })}>
+            <div className="visual-orbit orbit-one" /><div className="visual-orbit orbit-two" />
+            <div className="visual-note note-top"><span className="note-icon">♫</span><span><b>JUST TALK</b><small>No typing needed</small></span></div>
+            <div className="phone-frame" style={{ transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) rotate(3deg)` }}>
+              <div className="phone-island" /><div className="phone-screen">
+                <div className="phone-status"><span>9:41</span><span>● ● ● ▰</span></div>
+                <div className="phone-brand"><span className="mini-mark">u.</span><b>Ustaad AI</b><span className="phone-live"><i /> HERE WITH YOU</span></div>
+                <div className="phone-greeting"><small>CHALO, SHURU KARTE HAIN</small><strong>What's going<br />on today?</strong></div>
+                <div className="phone-chat"><span className="chat-avatar">u.</span><p>Tell me what the machine is doing.</p></div>
+                <div className="phone-user">The AC is running, but not cooling.</div>
+                <div className="phone-warning"><span>!</span><div><b>First, stay safe</b><small>Switch off power before opening the unit.</small></div></div>
+                <div className="phone-mic-wrap"><div className="phone-wave">{Array.from({ length: 11 }, (_, i) => <i key={i} />)}</div><div className="phone-mic">●</div><small>Tap and tell me</small></div>
+                <div className="phone-bottom"><span>ASK</span><span className="phone-bottom-active">LISTEN</span><span>YOUR BILLS</span></div>
               </div>
-
-              <aside className="right-column">
-                <section className="panel quick-panel"><div className="quick-head"><span>✳</span><strong>Ustaad’s approach</strong></div><h3>Clarity before repairs.</h3><p>We’ll help you narrow down the fault, not throw random fixes at it.</p><div className="quick-point"><b>01</b><span><strong>Grounded answers</strong><small>Based on verified service information.</small></span></div><div className="quick-point"><b>02</b><span><strong>Safety comes first</strong><small>Warnings before any repair steps.</small></span></div><div className="quick-point"><b>03</b><span><strong>You stay in control</strong><small>Confirm before taking action.</small></span></div></section>
-                <section className="tip-card"><div className="tip-top"><span>✦ FIELD TIP</span><span>01 / 03</span></div><p>“Describe what the machine is doing — not just what you think is broken.”</p><small>Better symptoms lead to better troubleshooting.</small></section>
-                <div className="support-line"><span>◉</span> Built for the people who keep India running.</div>
-              </aside>
             </div>
-          ) : (
-            <div className="billing-layout">
-              <section className="panel bill-capture">
-                <div className="panel-heading"><div><span className="step-label">STEP 01 · DESCRIBE THE JOB</span><h2>What work did you do?</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
-                <p className="panel-copy">Say the parts used and labour charged. You can edit every line before sharing.</p>
-                <textarea value={job} onChange={(e) => setJob(e.target.value)} aria-label="Job description" />
-                <div className="bill-voice-row"><button className="small-record" onClick={recording ? stopRecording : startRecording}>{recording ? "■ Stop" : "🎙 Speak"}</button><span>{recording ? `Recording · 00:${String(seconds).padStart(2, "0")}` : "Or type the job details above"}</span><button className="text-action" onClick={() => setNotice("Demo bill extraction refreshed from the sample description.")}>Extract items →</button></div>
-              </section>
-              <section className="panel bill-editor">
-                <div className="bill-title-row"><div><span className="step-label">STEP 02 · REVIEW & CONFIRM</span><h2>Itemised bill</h2></div><span className="draft-tag">DRAFT</span></div>
-                <div className="customer-field"><label htmlFor="customer">CUSTOMER NAME</label><input id="customer" value={customer} onChange={(e) => setCustomer(e.target.value)} /></div>
-                <div className="items-header"><span>DESCRIPTION</span><span>TYPE</span><span>AMOUNT (₹)</span><span /></div>
-                {items.map((item) => <div className="item-row" key={item.id}><input aria-label="Item description" value={item.name} onChange={(e) => updateItem(item.id, { name: e.target.value })} /><select aria-label="Item type" value={item.kind} onChange={(e) => updateItem(item.id, { kind: e.target.value as LineItem["kind"] })}><option>Part</option><option>Labour</option></select><input aria-label="Item price" type="number" min="0" value={item.price} onChange={(e) => updateItem(item.id, { price: Number(e.target.value) })} /><button className="remove-item" onClick={() => removeItem(item.id)} aria-label="Remove item">×</button></div>)}
-                <button className="add-item" onClick={addItem}>＋ Add line item</button>
-                <div className="bill-total"><div><span>Subtotal</span><strong>₹{total.toLocaleString("en-IN")}</strong></div><div><span>GST</span><span className="muted">Not included</span></div><div className="grand-total"><span>Total due</span><strong>₹{total.toLocaleString("en-IN")}</strong></div></div>
-                <div className="bill-warning"><span>ⓘ</span> Review all prices before sharing. This is a draft; the backend will validate the final calculation.</div>
-                <button className="primary-button full-button" onClick={() => setNotice("Demo only: the bill is ready for review. WhatsApp sharing will be enabled after API integration.")}>Prepare WhatsApp bill <span>↗</span></button>
-                <p className="no-gst">No GST included · Prices are editable</p>
-              </section>
-            </div>
-          )}
-          {notice && <div className="toast" role="status"><span>ⓘ</span>{notice}<button onClick={() => setNotice("")}>×</button></div>}
-          <footer className="footer"><span>© 2026 Ustaad AI</span><span>Made for the hands that make things work <b>✳</b></span><span>Version 0.1 · Prototype</span></footer>
+            <div className="visual-note note-bottom"><span className="note-icon note-green">✓</span><span><b>YOUR CALL, ALWAYS</b><small>Review before you act</small></span></div>
+            <div className="visual-caption">MADE FOR THE WORKSHOP FLOOR <span>✳</span></div>
+          </div>
         </div>
+        <div className="hero-bottomline"><span>USTAAD AI <b>·</b> YOUR WORKSHOP COMPANION</span><span>BUILT AROUND THE WAY YOU WORK</span></div>
       </section>
+
+      <section className="problem-section section-pad" id="why-ustaad"><div className="section-container">
+        <div className="section-kicker" data-reveal><span>01</span> WHY WE'RE HERE <i /></div>
+        <div className="section-heading-row" data-reveal><h2>Good work deserves<br /><em>good support.</em></h2><p>When your hands are busy and the job can't wait, help should be easy to reach. Not buried in a manual or another app.</p></div>
+        <div className="problem-grid">
+          <article className="problem-card" data-reveal><span className="number-disc">1</span><h3>Keep your hands on the job</h3><p>Talk instead of typing. Get help while you're right there with the machine.</p><span className="card-index">LESS STOPPING</span></article>
+          <article className="problem-card" data-reveal><span className="number-disc">2</span><h3>Speak like you normally do</h3><p>Explain the issue in Hindi or Hinglish. You don't need to know the perfect technical term.</p><span className="card-index">LESS TRANSLATING</span></article>
+          <article className="problem-card" data-reveal><span className="number-disc">3</span><h3>Remember every part</h3><p>Capture parts and labour while the work is fresh. Check the bill before you share it.</p><span className="card-index">LESS FORGOTTEN</span></article>
+        </div>
+        <div className="problem-punchline" data-reveal><span>✳</span> You do the skilled work. Ustaad helps with the remembering, checking and explaining.</div>
+      </div></section>
+
+      <section className="workflow-section section-pad" id="how-it-works"><div className="section-container">
+        <div className="section-kicker section-kicker-light" data-reveal><span>02</span> FOUR EASY MOVES <i /></div>
+        <div className="section-heading-row section-heading-light" data-reveal><h2>From “what's wrong?”<br /><em>to “job done”.</em></h2><p>No complicated setup. Just a simple conversation that follows the work you already do.</p></div>
+        <div className="workflow-track">{steps.map((step, i) => <article className="workflow-card" data-reveal key={step.n}>
+          <div className={`workflow-art art-${i}`}><span className="workflow-icon">{step.icon}</span><span className="workflow-orbit" /></div>
+          <div className="workflow-meta"><span>{step.n}</span> {["TELL","SHOW","CHECK","BILL"][i]}</div><h3>{step.title}</h3><p>{step.copy}</p><small className="workflow-cue">{step.cue}</small>
+        </article>)}</div>
+        <div className="workflow-footnote"><span className="green-pulse" /> Start with a voice note. Add a photo only when it helps.</div>
+      </div></section>
+
+      <section className="two-flows-section section-pad"><div className="section-container">
+        <div className="section-kicker" data-reveal><span>03</span> TWO THINGS, DONE BETTER <i /></div>
+        <div className="section-heading-row" data-reveal><h2>Help with the fix.<br /><em>Help with the bill.</em></h2><p>Ustaad keeps the focus on the two moments where a little support can make the working day easier.</p></div>
+        <div className="flows-grid">
+          <article className="flow-feature flow-diagnose" data-reveal><div className="flow-feature-top"><span>01 / FIND THE FAULT</span><span className="flow-feature-icon">⌁</span></div><h3>Let's figure it out.<br /><em>One check at a time.</em></h3><p>Describe the symptom, show the component and work through grounded checks with safety up front.</p><ul><li><span>✓</span> Talk it through, add a photo if useful</li><li><span>✓</span> Clear checks based on verified information</li><li><span>✓</span> Safety warning before repair steps</li></ul><div className="diagnose-mini"><div className="mini-top"><span>WHAT WE'VE FOUND</span><span className="mini-status">NEEDS YOUR CHECK</span></div><b>Possible capacitor issue</b><div className="mini-warning"><strong>!</strong> Isolate power before inspection.</div><div className="mini-step"><i>01</i> Check the capacitor rating</div><div className="mini-step"><i>02</i> Inspect for visible damage</div></div></article>
+          <article className="flow-feature flow-bill" data-reveal><div className="flow-feature-top"><span>02 / MAKE THE BILL</span><span className="flow-feature-icon">₹</span></div><h3>Get the work<br /><em>down on paper.</em></h3><p>Say what you used and what the work cost. Review the items before sharing with your customer.</p><ul><li><span>✓</span> Speak parts and labour</li><li><span>✓</span> Edit every line item</li><li><span>✓</span> Share when you're ready</li></ul><div className="bill-mini"><div className="mini-top"><span>YOUR WORK SUMMARY</span><span className="mini-status">DRAFT</span></div><div className="bill-mini-line"><span>Capacitor 35µF</span><b>₹450</b></div><div className="bill-mini-line"><span>Inspection & fitting</span><b>₹350</b></div><div className="bill-mini-total"><span>TOTAL DUE</span><b>₹800</b></div><div className="bill-mini-share">CHECK IT. THEN SHARE IT.</div></div></article>
+        </div>
+        <p className="prototype-disclaimer">This is a preview of the experience. Diagnosis and billing features are being connected to the live service.</p>
+      </div></section>
+
+      <section className="trust-section section-pad" id="trust"><div className="section-container">
+        <div className="section-kicker section-kicker-light" data-reveal><span>04</span> BUILT TO BE CAREFUL <i /></div>
+        <div className="section-heading-row section-heading-light" data-reveal><h2>Helpful, not<br /><em>overconfident.</em></h2><p>Machines, safety and money matter. Ustaad should be clear about what it knows—and just as clear when you need to check something.</p></div>
+        <div className="principles-grid">
+          <article className="principle-card" data-reveal><div className="principle-top"><span className="number-disc">01</span><span>VERIFIED INFORMATION</span></div><h3>No made-up answers</h3><p>When a fault isn't covered by verified information, Ustaad should say so instead of guessing.</p></article>
+          <article className="principle-card" data-reveal><div className="principle-top"><span className="number-disc">02</span><span>SAFETY FIRST</span></div><h3>Warnings come early</h3><p>Important safety guidance appears before repair steps—not buried at the end.</p></article>
+          <article className="principle-card" data-reveal><div className="principle-top"><span className="number-disc">03</span><span>REAL CALCULATIONS</span></div><h3>Numbers are checked</h3><p>Bill totals are calculated by the system, not guessed by a language model.</p></article>
+          <article className="principle-card" data-reveal><div className="principle-top"><span className="number-disc">04</span><span>YOUR DECISION</span></div><h3>You approve the action</h3><p>You review the diagnosis and every bill item. Ustaad supports your judgement; it doesn't replace it.</p></article>
+        </div>
+      </div></section>
+
+      <section className="closing-section"><div className="closing-texture" /><div className="closing-inner" data-reveal>
+        <div className="section-kicker section-kicker-light"><span>05</span> READY WHEN YOU ARE <i /></div>
+        <h2>Chalo, kaam<br />shuru karein?</h2><p>Tell Ustaad what's happening. We'll take it one step at a time.</p>
+        <div className="hero-actions"><Link className="button button-amber" href="/workspace">Open Ustaad <span>↗</span></Link><button className="button button-ghost" onClick={() => { setGuideStep(0); setGuideOpen(true); }}>Show me around</button></div>
+        <div className="closing-signoff">Bolo. Dikhao. Samajho. Theek karo. <span>✳</span></div>
+      </div></section>
+      <footer className="site-footer"><div className="footer-main"><Mark /><p>A little more help for the people<br />who keep things running.</p><Link href="/workspace">Open workspace ↗</Link></div><div className="footer-bottom"><span>© 2026 Ustaad AI</span><span>MADE FOR THE WORKSHOP FLOOR</span><a href="#top">Back to top ↑</a></div></footer>
+
+      <button className={`voice-launcher ${terminalOpen ? "is-open" : ""}`} onClick={() => setTerminalOpen(v => !v)} aria-label={terminalOpen ? "Close Ustaad voice assistant" : "Talk to Ustaad"}><span className="launcher-wave"><i/><i/><i/><i/></span><span>{terminalOpen ? "Close" : "Talk to Ustaad"}</span><b>{terminalOpen ? "×" : "↗"}</b></button>
+      {terminalOpen && <aside className="voice-terminal" aria-label="Talk to Ustaad">
+        <div className="terminal-head"><div><span className="terminal-live"><i/> HERE WITH YOU</span><h3>Bol, kya karna hai?</h3><p>Ask me in your own words.</p></div><button onClick={() => setTerminalOpen(false)} aria-label="Close">×</button></div>
+        <div className="terminal-messages" aria-live="polite">{messages.map((m, i) => <div className={`terminal-message ${m.from}`} key={i}><span>{m.from === "you" ? "YOU" : "USTAAD"}</span><p>{m.text}</p></div>)}</div>
+        <div className="terminal-suggestions"><button onClick={() => runCommand("Show me the workflow")}>Show me the workflow</button><button onClick={() => runCommand("Create a bill")}>Create a bill</button></div>
+        <form className="terminal-input" onSubmit={e => { e.preventDefault(); runCommand(command); }}><input value={command} onChange={e => setCommand(e.target.value)} placeholder="Type what you need..." aria-label="Say or type a command" /><button type="button" className={listening ? "listening" : ""} onClick={startListening} aria-label="Speak to Ustaad"> {listening ? "●" : "♫"} </button><button type="submit" aria-label="Send message">↑</button></form>
+        <small className="terminal-footnote">Try “show me the workflow” or “sign me up”. Voice input depends on browser support.</small>
+      </aside>}
+
+      {guideOpen && <div className="guide-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setGuideOpen(false); }}>
+        <section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+          <div className="guide-top"><span>YOUR FIRST FEW MINUTES WITH USTAAD</span><button onClick={() => setGuideOpen(false)} aria-label="Close guide">×</button></div>
+          <div className="guide-progress">{steps.map((s, i) => <span key={s.n} className={i <= guideStep ? "active" : ""} />)}</div>
+          <div className="guide-body"><div className="guide-step-icon">{steps[guideStep].icon}</div><small>STEP {steps[guideStep].n} OF 04</small><h2 id="guide-title">{steps[guideStep].title}</h2><p>{steps[guideStep].copy}</p><blockquote>{steps[guideStep].cue}</blockquote></div>
+          <div className="guide-footer"><button className="guide-skip" onClick={() => setGuideOpen(false)}>I'll explore myself</button><div>{guideStep > 0 && <button className="guide-back" onClick={() => setGuideStep(s => s - 1)}>Back</button>}<button className="guide-next" onClick={() => guideStep < 3 ? setGuideStep(s => s + 1) : (setGuideOpen(false), router.push("/workspace"))}>{guideStep === 3 ? "Try Ustaad" : "Next step"} <span>→</span></button></div></div>
+        </section>
+      </div>}
     </main>
   );
 }
