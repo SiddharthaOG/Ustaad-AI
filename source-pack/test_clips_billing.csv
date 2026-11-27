@@ -1,0 +1,11 @@
+﻿id,say_this,expected_items,expected_total_rupees,measured_result,notes
+B01,"Capacitor do sau pachaas rupaye, labour teen sau",capacitor 250 (part); labour 300 (labour),550,,
+B02,"Gas top-up barah sau rupaye, labour paanch sau",gas top-up 1200; labour 500,1700,,
+B03,"Wire dedh sau, switch dhai sau, labour saadhe teen sau",wire 150; switch 250; labour 350,750,,Tests dedh / dhai / saadhe
+B04,"PCB replace kiya, two thousand five hundred, labour four hundred",PCB 2500; labour 400,2900,,Mixed English numbers
+B05,"Do capacitor lagaye, ek ek sau pachaas ka, labour do sau",capacitor qty 2 x 150 = 300; labour 200,500,,Quantity handling
+B06,"Contactor badla, labour teen sau","contactor (no price, must be flagged); labour 300",300 plus flagged item,,"Missing price must set needs_confirmation, never guess"
+B07,"Sharma ji ka bill: fan motor attharah sau, labour chhe sau",customer Sharma; fan motor 1800; labour 600,2400,,Customer name extraction
+B08,"Service charge paanch sau, usme se pachaas discount",service 500; discount 50 (not supported),flag discount,,"Discount is not in the MVP; must be flagged, not silently applied"
+B09,"Visit charge teen sau, sensor chaar sau pachaas",visit 300 (labour); sensor 450,750,,
+B10,"Connector assi rupaye, sensor teen sau pachaas, gas ek hazaar, labour saat sau",connector 80; sensor 350; gas 1000; labour 700,2130,,"Four items, long sentence"

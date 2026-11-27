@@ -1,0 +1,21 @@
+﻿id,type,language_style,say_this,english_gloss,expected_code,expected_kb_id,photo,measured_result,notes
+D01,diagnose,Hinglish,LG split AC pe CH zero five error aa raha hai,LG split AC shows CH05,CH05,lg-ch05,yes (display/LED),,
+D02,diagnose,Hinglish,"LG AC me CH05 dikha raha hai, indoor aur outdoor ka communication problem lag raha hai","LG CH05, communication problem",CH05,lg-ch05,no,,
+D03,diagnose,Hinglish,LG AC me E zero error blink kar raha hai,LG E0 error,E0,lg-ch05,no,,
+D04,diagnose,Hinglish,"LG AC CH thirty-eight bol raha hai, cooling bilkul nahi kar raha","LG CH38, not cooling",CH38,lg-ch38,yes (display/LED),,
+D05,diagnose,Hinglish,"LG AC me F4 error hai, gas kam bata raha hai","LG F4, low gas",F4,lg-ch38,no,,
+D06,diagnose,Hinglish,"LG AC me CH sixty-one aa gaya, outdoor unit bahut garam ho raha hai","LG CH61, outdoor very hot",CH61,lg-ch61,no,,
+D07,diagnose,Hinglish,"LG AC ka indoor fan nahi chal raha, CH ten dikha raha hai",LG CH10 indoor fan not running,CH10,lg-ch10,no,,
+D08,diagnose,Hinglish,"LG AC ka outdoor fan band hai, display pe EF aa raha hai","LG EF, outdoor fan stopped",EF,lg-ch67,no,,
+D09,diagnose,Hinglish,Light jaane ke baad LG AC me CH fifty-four aa gaya,LG CH54 after power cut,CH54,lg-ch54,no,,
+D10,diagnose,Hinglish,LG AC se paani tapak raha hai aur CH zero four dikha raha hai,LG CH04 with water dripping,CH04,lg-ch04,no,,
+D11,diagnose,Hinglish,Samsung AC me C one fifty-four error baar baar aa raha hai,Samsung C154 repeating,C154,samsung-c154,yes (display),,
+D12,diagnose,Hinglish,Samsung AC me C1 aur 21 baari baari se blink ho raha hai,Samsung C1/21 blinking,C1/21,samsung-21,yes (LED blink),,
+D13,diagnose,Hinglish,Samsung AC ke display pe sixty-three aa raha hai,Samsung 63,63,samsung-63,no,,
+D14,diagnose,Hinglish,"Samsung AC ka fan nahi ghoom raha, C1 aur 54 blink ho raha hai",Samsung C1/54 fan not rotating,C1/54,samsung-54,no,,
+D15,diagnose,Hinglish,Samsung AC me C1 aur 22 blink kar raha hai,Samsung C1/22,C1/22,samsung-22,no,,
+O01,out-of-KB,Hinglish,Daikin AC me U4 error aa raha hai,Daikin U4 (not in KB),U4,none (expect grounded=false),no,,App must say the code is not in its database and give only general guidance
+O02,out-of-KB,Hinglish,Voltas AC me E6 error aa raha hai,Voltas E6 (deliberately excluded from KB),E6,none (expect grounded=false),no,,Tests that unverified codes are not answered as fact
+O03,out-of-KB,Hinglish,"AC ke compressor se ajeeb awaaz aa rahi hai, koi code nahi dikha","Noise from compressor, no code",-,none (expect grounded=false),no,,"General low-risk guidance only, safety alert first"
+N01,noisy,Hinglish,LG AC me CH zero five error aa raha hai (record next to a running fan or on a street),LG CH05 with background noise,CH05,lg-ch05,no,,Record with noise; compare transcript to D01
+N02,noisy,Hinglish,"Pehle CH zero five aaya tha, ab CH sixty-one dikha raha hai (fast speech)","Earlier CH05, now CH61",CH61,lg-ch61,no,,Answer should address the current code CH61

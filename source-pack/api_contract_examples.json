@@ -1,0 +1,188 @@
+{
+  "contract_version": "0.1",
+  "_note": "Example fixture for contract version 0.1. Values such as latency_ms are illustrative, NOT measured.",
+  "diagnose_examples": {
+    "grounded_lg_ch05": {
+      "transcript": "LG AC pe CH05 error aa raha hai",
+      "detected_code": "CH05",
+      "kb_id": "lg-ch05",
+      "grounded": true,
+      "needs_confirmation": false,
+      "confirm_question": null,
+      "error_meaning": "Communication problem between the indoor and outdoor units",
+      "probable_causes": [
+        "Temporary communication or power error",
+        "Faulty wiring or a loose connector",
+        "Problem with the main circuit board",
+        "If it appeared right after installation or relocation: loose connection or refrigerant leak from installation"
+      ],
+      "safety_alert": "Koi bhi panel kholne ya taar chhune se pehle main MCB band karein.",
+      "steps": [
+        "Breaker band karke 5 minute rukein, phir power chalu karein.",
+        "Indoor aur outdoor ke beech wiring aur connector dhilla to nahi, check karein.",
+        "Abhi install ya shift kiya hai to installer se baat karein.",
+        "Power cycle ke baad bhi error aaye to service ki zaroorat hai."
+      ],
+      "spoken_summary": "Pehle main MCB band karein. Phir breaker 5 minute band rakhein aur wiring aur connector check karein. Error wapas aaye to service karwayein.",
+      "source": "LG India - [LG Air Conditioner] Guide to Error Codes",
+      "photo_note": null,
+      "provider": "gemini",
+      "latency_ms": 4200
+    },
+    "not_in_database_daikin_u4": {
+      "transcript": "Daikin AC me U4 error aa raha hai",
+      "detected_code": "U4",
+      "kb_id": null,
+      "grounded": false,
+      "needs_confirmation": false,
+      "confirm_question": null,
+      "error_meaning": null,
+      "probable_causes": [],
+      "safety_alert": "Kaam shuru karne se pehle bijli band karein. Agar shak ho to kaam rokein aur supervisor ya service centre se poochhein.",
+      "steps": [
+        "Yeh brand abhi mere database me nahi hai.",
+        "Manual me U4 ka matlab dekhein.",
+        "Bijli band karke hi koi jaanch karein."
+      ],
+      "spoken_summary": "Kaam shuru karne se pehle bijli band karein. Agar shak ho to kaam rokein aur supervisor ya service centre se poochhein. Yeh code mere database me nahi hai.",
+      "source": null,
+      "photo_note": null,
+      "provider": "gemini",
+      "latency_ms": 3100
+    },
+    "needs_confirmation_ch60": {
+      "transcript": "LG AC me CH sixty aa raha hai",
+      "detected_code": "CH61",
+      "kb_id": "lg-ch61",
+      "grounded": true,
+      "needs_confirmation": true,
+      "confirm_question": "Kya aapne CH61 kaha?",
+      "error_meaning": null,
+      "probable_causes": [],
+      "safety_alert": "Koi bhi panel kholne ya taar chhune se pehle main MCB band karein.",
+      "steps": [],
+      "spoken_summary": "Kya aapne CH61 kaha?",
+      "source": null,
+      "photo_note": null,
+      "provider": "groq",
+      "latency_ms": 2800
+    },
+    "brand_not_covered_voltas_e6": {
+      "transcript": "Voltas AC me E6 error aa raha hai",
+      "detected_code": "E6",
+      "kb_id": null,
+      "grounded": false,
+      "needs_confirmation": false,
+      "confirm_question": null,
+      "error_meaning": null,
+      "probable_causes": [],
+      "safety_alert": "Kaam shuru karne se pehle bijli band karein. Agar shak ho to kaam rokein aur supervisor ya service centre se poochhein.",
+      "steps": [
+        "Voltas abhi mere database me nahi hai.",
+        "Apne model ka manual dekhein."
+      ],
+      "spoken_summary": "Voltas abhi mere database me nahi hai. Kaam shuru karne se pehle bijli band karein. Agar shak ho to kaam rokein aur supervisor ya service centre se poochhein.",
+      "source": null,
+      "photo_note": null,
+      "provider": "gemini",
+      "latency_ms": 2900
+    },
+    "ambiguous_brand_e6": {
+      "transcript": "AC me E6 aa raha hai",
+      "detected_code": "E6",
+      "kb_id": null,
+      "grounded": false,
+      "needs_confirmation": true,
+      "confirm_question": "Kaun si company ka AC hai, LG ya Samsung?",
+      "error_meaning": null,
+      "probable_causes": [],
+      "safety_alert": "Kaam shuru karne se pehle bijli band karein. Agar shak ho to kaam rokein aur supervisor ya service centre se poochhein.",
+      "steps": [],
+      "spoken_summary": "Kaun si company ka AC hai, LG ya Samsung?",
+      "source": null,
+      "photo_note": null,
+      "provider": "gemini",
+      "latency_ms": 2500
+    }
+  },
+  "bill_examples": {
+    "b01_capacitor": {
+      "customer": null,
+      "items": [
+        {
+          "name": "Capacitor",
+          "qty": 1,
+          "unit_price": 250,
+          "kind": "part",
+          "needs_confirmation": false
+        },
+        {
+          "name": "Labour",
+          "qty": 1,
+          "unit_price": 300,
+          "kind": "labour",
+          "needs_confirmation": false
+        }
+      ],
+      "unsupported_mentions": [],
+      "total": 550,
+      "total_complete": true,
+      "whatsapp_text": "Ustaad AI Bill\nCapacitor x1: Rs 250\nLabour: Rs 300\nTotal: Rs 550\n(No GST included)",
+      "provider": "gemini",
+      "latency_ms": 3000
+    },
+    "b06_missing_price": {
+      "customer": null,
+      "items": [
+        {
+          "name": "Contactor",
+          "qty": 1,
+          "unit_price": null,
+          "kind": "part",
+          "needs_confirmation": true
+        },
+        {
+          "name": "Labour",
+          "qty": 1,
+          "unit_price": 300,
+          "kind": "labour",
+          "needs_confirmation": false
+        }
+      ],
+      "unsupported_mentions": [],
+      "total": null,
+      "total_complete": false,
+      "whatsapp_text": null,
+      "provider": "gemini",
+      "latency_ms": 2900
+    },
+    "b08_discount": {
+      "customer": null,
+      "items": [
+        {
+          "name": "Service charge",
+          "qty": 1,
+          "unit_price": 500,
+          "kind": "labour",
+          "needs_confirmation": false
+        }
+      ],
+      "unsupported_mentions": [
+        "discount: 50"
+      ],
+      "total": 500,
+      "total_complete": true,
+      "whatsapp_text": "Ustaad AI Bill\nService charge x1: Rs 500\nTotal: Rs 500\n(No GST included)",
+      "provider": "gemini",
+      "latency_ms": 2700
+    }
+  },
+  "error_example": {
+    "error_code": "MODEL_TIMEOUT",
+    "message": "Server slow hai, dobara try karein."
+  },
+  "contract_changes_vs_build_pack": [
+    "Added confirm_question (diagnose): text or null, used for uncertain matches, brand questions and key collisions",
+    "Added total_complete (bill): false while any price is missing; total is null then"
+  ]
+}
