@@ -12,14 +12,9 @@ import { validateDiagnosisImage, validateDiagnosisWav } from "@/lib/media-valida
 import { diagnosisDemoScenarios, type DiagnosisDemoScenario } from "@/lib/api/diagnosis-scenarios";
 import { normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
 import { DiagnosisResult } from "./diagnosis-result";
+import { BillingWorkflow } from "./billing-workflow";
 
 type Mode = "diagnose" | "billing";
-type LineItem = { id: number; name: string; kind: "Part" | "Labour"; price: number };
-
-const initialItems: LineItem[] = [
-  { id: 1, name: "Capacitor 35µF", kind: "Part", price: 450 },
-  { id: 2, name: "Inspection & fitting", kind: "Labour", price: 350 },
-];
 
 function Icon({ children }: { children: React.ReactNode }) {
   return <span className="icon" aria-hidden="true">{children}</span>;
@@ -46,9 +41,6 @@ export default function Home() {
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
   const [diagnosisError, setDiagnosisError] = useState("");
   const [diagnosisSubmitted, setDiagnosisSubmitted] = useState(false);
-  const [items, setItems] = useState(initialItems);
-  const [customer, setCustomer] = useState("Ramesh Kumar");
-  const [job, setJob] = useState("AC is running, but not cooling properly");
   const [notice, setNotice] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
@@ -151,11 +143,6 @@ export default function Home() {
     }
   };
 
-  const total = items.reduce((sum, item) => sum + item.price, 0);
-  const addItem = () => setItems((current) => [...current, { id: Date.now(), name: "New line item", kind: "Part", price: 0 }]);
-  const updateItem = (id: number, patch: Partial<LineItem>) => setItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
-  const removeItem = (id: number) => setItems((current) => current.filter((item) => item.id !== id));
-
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -224,27 +211,7 @@ export default function Home() {
               </aside>
             </div>
           ) : (
-            <div className="billing-layout">
-              <section className="panel bill-capture">
-                <div className="panel-heading"><div><span className="step-label">STEP 01 · DESCRIBE THE JOB</span><h2>What work did you do?</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
-                <p className="panel-copy">Say the parts used and labour charged. You can edit every line before sharing.</p>
-                <textarea value={liveTranscript.transcript || job} onChange={(e) => { setJob(e.target.value); liveTranscript.setTranscript(e.target.value); }} aria-label="Job description" />
-                {(recording || recorderStatus === "requesting") && <div className={`recording-signal billing-recording-signal ${recording ? "is-live" : "is-requesting"}`} role="status" aria-live="polite"><span className="recording-signal-dot" /><span className="recording-signal-label">{recording ? "Ustaad is listening" : "Connecting to your microphone…"}</span>{recording && <span className="input-meter" aria-label={inputLevel > 0.015 ? "Microphone input detected" : "Waiting for microphone input"}>{Array.from({ length: 12 }, (_, index) => <i key={index} className={inputLevel > (index + 1) / 16 ? "active" : ""} />)}</span>}{recording && <span className="recording-signal-hint">{inputLevel > 0.015 ? "Voice input detected" : "Speak to test your mic"}</span>}</div>}
-                <div className="bill-voice-row"><button className="small-record" onClick={recording ? endRecording : beginRecording}>{recording ? "Stop recording" : "Speak"}</button><span>{recording ? `Recording 00:${String(seconds).padStart(2, "0")}` : liveTranscript.interim ? `Hearing: ${liveTranscript.interim}` : "Or type the job details above"}</span><label className="bill-live-toggle"><input type="checkbox" checked={liveTextEnabled} onChange={(event) => { setLiveTextEnabled(event.target.checked); if (event.target.checked && recording) liveTranscript.start(transcriptLanguage); else if (!event.target.checked) liveTranscript.stop(); }} /> Live text</label><button className="text-action" onClick={() => setNotice("Demo bill extraction refreshed from the sample description.")}>Extract items</button></div>
-                {audioUrl && <div className="audio-review"><strong>Review recording</strong><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported.</audio><div className="audio-review-actions"><button type="button" onClick={() => { clearAudio(); beginRecording(); }}>Retake</button><button type="button" onClick={clearAudio}>Clear</button></div></div>}
-              </section>
-              <section className="panel bill-editor">
-                <div className="bill-title-row"><div><span className="step-label">STEP 02 · REVIEW & CONFIRM</span><h2>Itemised bill</h2></div><span className="draft-tag">DRAFT</span></div>
-                <div className="customer-field"><label htmlFor="customer">CUSTOMER NAME</label><input id="customer" value={customer} onChange={(e) => setCustomer(e.target.value)} /></div>
-                <div className="items-header"><span>DESCRIPTION</span><span>TYPE</span><span>AMOUNT (₹)</span><span /></div>
-                {items.map((item) => <div className="item-row" key={item.id}><input aria-label="Item description" value={item.name} onChange={(e) => updateItem(item.id, { name: e.target.value })} /><select aria-label="Item type" value={item.kind} onChange={(e) => updateItem(item.id, { kind: e.target.value as LineItem["kind"] })}><option>Part</option><option>Labour</option></select><input aria-label="Item price" type="number" min="0" value={item.price} onChange={(e) => updateItem(item.id, { price: Number(e.target.value) })} /><button className="remove-item" onClick={() => removeItem(item.id)} aria-label="Remove item">×</button></div>)}
-                <button className="add-item" onClick={addItem}>＋ Add line item</button>
-                <div className="bill-total"><div><span>Subtotal</span><strong>₹{total.toLocaleString("en-IN")}</strong></div><div><span>GST</span><span className="muted">Not included</span></div><div className="grand-total"><span>Total due</span><strong>₹{total.toLocaleString("en-IN")}</strong></div></div>
-                <div className="bill-warning"><span>ⓘ</span> Review all prices before sharing. This is a draft; the backend will validate the final calculation.</div>
-                <button className="primary-button full-button" onClick={() => setNotice("Demo only: the bill is ready for review. WhatsApp sharing will be enabled after API integration.")}>Prepare WhatsApp bill <span>↗</span></button>
-                <p className="no-gst">No GST included · Prices are editable</p>
-              </section>
-            </div>
+            <BillingWorkflow />
           )}
           {notice && <div className="toast" role="status"><span>ⓘ</span>{notice}<button onClick={() => setNotice("")}>×</button></div>}
           <footer className="footer"><span>© 2026 Ustaad AI</span><span>Made for the hands that make things work <b>✳</b></span><span>Version 0.1 · Prototype</span></footer>
