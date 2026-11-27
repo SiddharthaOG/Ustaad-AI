@@ -27,8 +27,12 @@
 ## F2 — Capture hardening
 
 - [ ] Test layout at 360px, 390px, tablet, and desktop widths
-- [ ] Add explicit recording permission / unsupported-browser states
-- [ ] Enforce audio (2 MB) and image (1.5 MB) client-side limits
+- [x] Add explicit microphone permission / unsupported-browser error states
+- [x] Replace MediaRecorder capture with AudioWorklet mono 16 kHz signed PCM WAV encoding
+- [x] Enforce 15-second capture duration and 2 MB generated-WAV limit
+- [ ] Perform real microphone capture QA in supported desktop and Android browsers
+- [ ] Validate uploaded audio files against type and 2 MB limits
+- [ ] Enforce image (1.5 MB) client-side limit
 - [ ] Add image preview and remove action
 - [ ] Add audio playback / retake / clear action
 - [ ] Add keyboard and screen-reader labels to all controls
