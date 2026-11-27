@@ -18,6 +18,8 @@ export function useAudioRecorder() {
   const [status, setStatus] = useState<AudioRecorderStatus>("idle");
   const [seconds, setSeconds] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState("");
+  const audioUrlRef = useRef("");
   const [error, setError] = useState("");
   const streamRef = useRef<MediaStream | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
@@ -70,6 +72,9 @@ export function useAudioRecorder() {
       const wav = encodePcm16Wav(mono16k);
       if (wav.size > MAX_AUDIO_BYTES) throw new Error("Recording is larger than 2 MB. Please record a shorter clip.");
       setAudioBlob(wav);
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = URL.createObjectURL(wav);
+      setAudioUrl(audioUrlRef.current);
       setSeconds(Math.min(MAX_RECORDING_SECONDS, Math.ceil(duration)));
       setError("");
       setStatus("ready");
@@ -87,6 +92,9 @@ export function useAudioRecorder() {
   const start = useCallback(async () => {
     if (status === "requesting" || status === "recording" || status === "processing") return;
     setAudioBlob(null);
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioUrlRef.current = "";
+    setAudioUrl("");
     setError("");
     setSeconds(0);
     framesRef.current = [];
@@ -143,12 +151,15 @@ export function useAudioRecorder() {
     framesRef.current = [];
     frameCountRef.current = 0;
     setAudioBlob(null);
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioUrlRef.current = "";
+    setAudioUrl("");
     setSeconds(0);
     setError("");
     setStatus("idle");
   }, [releaseResources]);
 
-  useEffect(() => () => { void releaseResources(); }, [releaseResources]);
+  useEffect(() => () => { void releaseResources(); if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current); }, [releaseResources]);
 
-  return { status, seconds, audioBlob, error, start, stop, clear };
+  return { status, seconds, audioBlob, audioUrl, error, start, stop, clear };
 }

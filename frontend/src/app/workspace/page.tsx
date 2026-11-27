@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAudioRecorder } from "@/lib/audio/use-audio-recorder";
+import { useLiveTranscript } from "@/lib/audio/use-live-transcript";
+import { validateAudioFile } from "@/lib/audio/audio-file";
 
 type Mode = "diagnose" | "billing";
 type LineItem = { id: number; name: string; kind: "Part" | "Labour"; price: number };
@@ -20,7 +22,12 @@ function Icon({ children }: { children: React.ReactNode }) {
 export default function Home() {
   const [mode, setMode] = useState<Mode>("diagnose");
   const [audioName, setAudioName] = useState("");
-  const { status: recorderStatus, seconds, audioBlob, error: recorderError, start: startRecording, stop: stopRecording } = useAudioRecorder();
+  const { status: recorderStatus, seconds, audioBlob, audioUrl: recordedAudioUrl, error: recorderError, start: startRecording, stop: stopRecording, clear: clearRecording } = useAudioRecorder();
+  const liveTranscript = useLiveTranscript();
+  const [transcriptLanguage, setTranscriptLanguage] = useState<"hi-IN" | "en-IN">("hi-IN");
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
+  const [audioValidationError, setAudioValidationError] = useState("");
+  const [liveTextEnabled, setLiveTextEnabled] = useState(false);
   const recording = recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing";
   const [photoName, setPhotoName] = useState("");
   const [items, setItems] = useState(initialItems);
@@ -30,6 +37,29 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
+
+  const audioUrl = recordedAudioUrl || uploadedAudioUrl;
+  useEffect(() => () => { if (uploadedAudioUrl) URL.revokeObjectURL(uploadedAudioUrl); }, [uploadedAudioUrl]);
+
+  const beginRecording = () => {
+    setUploadedAudioUrl("");
+    setAudioName("");
+    setAudioValidationError("");
+    void startRecording();
+    if (liveTextEnabled) liveTranscript.start(transcriptLanguage);
+  };
+  const endRecording = () => { void stopRecording(); liveTranscript.stop(); };
+  const clearAudio = () => {
+    clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setAudioName(""); setAudioValidationError("");
+    if (audioInput.current) audioInput.current.value = "";
+  };
+  const handleAudioFile = async (file?: File) => {
+    if (!file) return;
+    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setAudioName("");
+    const validation = await validateAudioFile(file);
+    if (!validation.valid) { setAudioName(""); setAudioValidationError(validation.message); if (audioInput.current) audioInput.current.value = ""; return; }
+    setUploadedAudioUrl(URL.createObjectURL(validation.file)); setAudioName(validation.file.name); setAudioValidationError("");
+  };
 
   const total = items.reduce((sum, item) => sum + item.price, 0);
   const addItem = () => setItems((current) => [...current, { id: Date.now(), name: "New line item", kind: "Part", price: 0 }]);
@@ -76,18 +106,21 @@ export default function Home() {
                   <div className="panel-heading"><div><span className="step-label">STEP 01 · TELL US THE PROBLEM</span><h2>Talk to Ustaad</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
                   <p className="panel-copy">Explain the symptoms in your own words. Hindi, English or Hinglish — whatever works.</p>
                   <div className={`record-zone ${recording ? "is-recording" : ""}`}>
-                    <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? stopRecording : startRecording} aria-label={recording ? "Stop recording" : "Start recording"}><span>{recording ? "■" : "🎙"}</span></button>
+                    <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? endRecording : beginRecording} aria-label={recording ? "Stop recording" : "Start recording"}><span>{recording ? "■" : "🎙"}</span></button>
                     <strong>{recording ? "Listening… tap to stop" : audioBlob || audioName ? "Voice note captured" : "Tap to speak"}</strong>
                     <small>{recording ? `00:${String(seconds).padStart(2, "0")} / 00:15` : audioName || "Up to 15 seconds · Speak naturally"}</small>
                     {recording && <div className="waveform">{Array.from({ length: 31 }, (_, i) => <i key={i} style={{ height: `${10 + ((i * 17) % 28)}px` }} />)}</div>}
                   </div>
                   {recorderError && <p className="file-picked" role="alert">{recorderError}</p>}
+                  {audioValidationError && <p className="file-picked" role="alert">{audioValidationError}</p>}
+                  {audioUrl && <div className="audio-review"><div><strong>Review your audio</strong><small>Listen before sending it to Ustaad.</small></div><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported by this browser.</audio><div className="audio-review-actions"><button type="button" onClick={() => { clearAudio(); beginRecording(); }}>Retake</button><button type="button" onClick={clearAudio}>Clear</button></div></div>}
+                  <section className="transcript-card" aria-label="Live transcript review"><div className="transcript-heading"><div><strong>Live transcript</strong><small>Like a voice note that writes itself. Speech recognition is a draft. Check names, model codes and details before analysis.</small></div><select aria-label="Transcription language" value={transcriptLanguage} onChange={(event) => setTranscriptLanguage(event.target.value as "hi-IN" | "en-IN")}><option value="hi-IN">Hindi</option><option value="en-IN">English</option></select></div><label className="transcript-opt-in"><input type="checkbox" checked={liveTextEnabled} onChange={(event) => { setLiveTextEnabled(event.target.checked); if (event.target.checked && recording) liveTranscript.start(transcriptLanguage); else if (!event.target.checked) liveTranscript.stop(); }} /> Enable live text preview <span>(Hindi / English preview; mixed speech may be imperfect. Your browser speech provider may process audio.)</span></label><textarea value={liveTranscript.transcript} onChange={(event) => liveTranscript.setTranscript(event.target.value)} placeholder="Your words will appear here while you speak. You can edit them before continuing." rows={3} aria-label="Edit spoken transcript"/><div className="transcript-foot">{liveTranscript.interim && <span className="transcript-interim">Hearing: {liveTranscript.interim}</span>}{!liveTranscript.supported && <span>Live text is not supported in this browser; you can type here instead.</span>}{liveTranscript.transcriptError && <span role="status">{liveTranscript.transcriptError}</span>}<button type="button" onClick={liveTranscript.clear} disabled={!liveTranscript.transcript && !liveTranscript.interim}>Clear text</button></div></section>
                   <div className="or-divider"><span /> OR <span /></div>
                   <button className="upload-audio" onClick={() => audioInput.current?.click()}><Icon>↑</Icon><span><strong>Upload an audio clip</strong><small>WAV, MP3 or M4A · Max 2 MB</small></span><b>Browse files</b></button>
-                  <input ref={audioInput} type="file" accept="audio/*" hidden onChange={(e) => setAudioName(e.target.files?.[0]?.name || "")} />
+                  <input ref={audioInput} type="file" accept=".wav,.mp3,.m4a,audio/wav,audio/mpeg,audio/mp4" hidden onChange={(e) => void handleAudioFile(e.target.files?.[0])} />
                   <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>A photo of the unit or its error code helps.</small>{photoName && <small className="file-picked">✓ {photoName}</small>}</div><button onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/*" hidden onChange={(e) => setPhotoName(e.target.files?.[0]?.name || "")} /></div>
                   <button className="primary-button full-button" onClick={() => { setShowResult(true); setNotice("Demo result shown below. Live diagnosis will connect when the backend API is ready."); }}>Analyse the problem <span>→</span></button>
-                  <div className="privacy-note"><Icon>♢</Icon> Your recordings and photos are processed for this request, not stored.</div>
+                  <div className="privacy-note"><Icon>♢</Icon> Ustaad does not store recordings. Live text preview may use your browser speech provider.</div>
                 </section>
 
                 <section className="panel result-panel">
@@ -107,8 +140,9 @@ export default function Home() {
               <section className="panel bill-capture">
                 <div className="panel-heading"><div><span className="step-label">STEP 01 · DESCRIBE THE JOB</span><h2>What work did you do?</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
                 <p className="panel-copy">Say the parts used and labour charged. You can edit every line before sharing.</p>
-                <textarea value={job} onChange={(e) => setJob(e.target.value)} aria-label="Job description" />
-                <div className="bill-voice-row"><button className="small-record" onClick={recording ? stopRecording : startRecording}>{recording ? "■ Stop" : "🎙 Speak"}</button><span>{recording ? `Recording · 00:${String(seconds).padStart(2, "0")}` : "Or type the job details above"}</span><button className="text-action" onClick={() => setNotice("Demo bill extraction refreshed from the sample description.")}>Extract items →</button></div>
+                <textarea value={liveTranscript.transcript || job} onChange={(e) => { setJob(e.target.value); liveTranscript.setTranscript(e.target.value); }} aria-label="Job description" />
+                <div className="bill-voice-row"><button className="small-record" onClick={recording ? endRecording : beginRecording}>{recording ? "Stop recording" : "Speak"}</button><span>{recording ? `Recording 00:${String(seconds).padStart(2, "0")}` : liveTranscript.interim ? `Hearing: ${liveTranscript.interim}` : "Or type the job details above"}</span><label className="bill-live-toggle"><input type="checkbox" checked={liveTextEnabled} onChange={(event) => { setLiveTextEnabled(event.target.checked); if (event.target.checked && recording) liveTranscript.start(transcriptLanguage); else if (!event.target.checked) liveTranscript.stop(); }} /> Live text</label><button className="text-action" onClick={() => setNotice("Demo bill extraction refreshed from the sample description.")}>Extract items</button></div>
+                {audioUrl && <div className="audio-review"><strong>Review recording</strong><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported.</audio><div className="audio-review-actions"><button type="button" onClick={() => { clearAudio(); beginRecording(); }}>Retake</button><button type="button" onClick={clearAudio}>Clear</button></div></div>}
               </section>
               <section className="panel bill-editor">
                 <div className="bill-title-row"><div><span className="step-label">STEP 02 · REVIEW & CONFIRM</span><h2>Itemised bill</h2></div><span className="draft-tag">DRAFT</span></div>
