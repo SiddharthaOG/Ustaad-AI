@@ -73,6 +73,7 @@ Run npm test from frontend. It currently runs:
 2. test:media: strict WAV validation, 15-second boundary, RIFF chunk parsing, malformed/truncated audio, codec/channel/sample-rate/size checks and JPEG extension/MIME/signature/size checks.
 3. test:diagnosis: demo scenarios, incomplete response normalization, KB grounding fail-closed behaviour and four-step cap.
 4. test:billing: missing-price handling, demo-only total calculation, decimal quantity rounding, WhatsApp text and numeric overflow.
+5. test:api: mocked health, diagnosis, extraction, confirmation and TTS requests; multipart/JSON payloads; structured errors; network failures; timeouts; caller cancellation; and malformed success JSON.
 
 These tests do not establish speech-to-text accuracy or real browser codec/device behaviour. source-pack/test_clips_diagnose.csv and source-pack/test_clips_billing.csv provide expected spoken phrases and interpretation fields, but they are text scripts rather than recorded audio. Real accuracy requires browser/device tests with recordings from technicians and the backend's chosen transcription/decoding implementation.
 
