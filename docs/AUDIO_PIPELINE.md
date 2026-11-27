@@ -1,4 +1,4 @@
-# Browser Audio Pipeline - v0.2
+﻿# Browser Audio Pipeline - v0.2
 
 ## Scope
 
@@ -26,7 +26,7 @@ User gesture
 - `src/lib/audio/use-audio-recorder.ts`: permission handling, recorder lifecycle, timer, cleanup, output Blob and preview URL.
 - `src/lib/audio/audio-file.ts`: pre-validates uploaded WAV, MP3 and M4A files by size, extension and basic container/codec signatures.
 - `src/lib/audio/use-live-transcript.ts`: optional Web Speech API transcript preview for `hi-IN` or `en-IN`.
-- `src/lib/audio/audio.test.mjs`: Node built-in tests for resampling, WAV output and file validation.
+- `tests/audio.test.mjs` plus `scripts/test-audio.mjs`: Node built-in tests, compiling the pure TypeScript modules into a temporary directory first.
 - `src/app/workspace/page.tsx`: presentation and user actions; no DSP or encoding logic.
 
 ## Audio upload rules

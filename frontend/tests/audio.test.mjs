@@ -1,7 +1,9 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
-import { encodePcm16Wav, resampleMono, MAX_AUDIO_BYTES, MAX_RECORDING_SECONDS } from "./wav.ts";
-import { validateAudioFile } from "./audio-file.ts";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const { encodePcm16Wav, resampleMono, MAX_AUDIO_BYTES, MAX_RECORDING_SECONDS } = require("../.audio-test-build/wav.js");
+const { validateAudioFile } = require("../.audio-test-build/audio-file.js");
 
 function wavBytes(codec = 1) {
   const bytes = new Uint8Array(46);
@@ -66,3 +68,4 @@ test("keeps capture limits explicit", () => {
   assert.equal(MAX_RECORDING_SECONDS, 15);
   assert.equal(MAX_AUDIO_BYTES, 2 * 1024 * 1024);
 });
+

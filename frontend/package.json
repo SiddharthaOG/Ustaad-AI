@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:audio": "node --test src/lib/audio/audio.test.mjs"
+    "test:audio": "node scripts/test-audio.mjs"
   },
   "dependencies": {
     "next": "16.4.6",
