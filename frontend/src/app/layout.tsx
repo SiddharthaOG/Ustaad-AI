@@ -8,7 +8,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Ustaad AI â€” Bolo. Dikhao. Theek Karo.",
+  title: "Ustaad AI — Bolo. Dikhao. Theek Karo.",
   description: "A hands-free voice and camera co-pilot for Indian mechanics and field technicians. Speak, show, hear and bill.",
   applicationName: "Ustaad AI",
   appleWebApp: {
