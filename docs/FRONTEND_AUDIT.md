@@ -1,29 +1,30 @@
-# Ustaad AI Frontend Audit
+# Ustaad AI — Frontend and Integration Audit
 
-Audit date: 27 November 2026
-Scope: frontend completion, frozen API integration contracts, media validation, workflow resilience and automated tests.
+Audit updated: 27 November 2026
+Repository: `SiddharthaOG/Ustaad-AI`
+Current integration branch: `main`
 
-## Feature branch stack
+## Integration status
 
-These branches are intentionally stacked so each later branch contains the earlier work. Integrate them in this order if/when the team authorizes it:
+All six frontend feature slices have been merged into `main` using normal merge commits:
 
-1. feat/frontend-api-client (existing API client and diagnosis foundation)
-2. feat/diagnosis-completion
-3. feat/billing-workflow
-4. feat/media-validation-alignment
-5. feat/frontend-quality
-6. test/frontend-integration
+1. PR #5 — `feat/frontend-api-client`
+2. PR #6 — `feat/diagnosis-completion`
+3. PR #7 — `feat/billing-workflow`
+4. PR #8 — `feat/media-validation-alignment`
+5. PR #9 — `feat/frontend-quality`
+6. PR #10 — `test/frontend-integration`
 
-All work remains unmerged. No pull requests were opened, nothing was merged into main, and no services were deployed. The architecture Markdown file in the local project root remains untracked and was not included in any commit.
+The FastAPI B0 foundation was subsequently merged in PR #11. No squash or rebase merges were used.
 
-## Feature audit
+## Frontend feature audit
 
 ### Diagnosis
 
 - Diagnosis submission uses the central API client and frozen multipart contract.
 - Optional JPEG image preview, replacement and removal are implemented.
-- JPEG extension, MIME type, 1.5 MiB size, start/end markers and browser decoding (where createImageBitmap is available) are checked.
-- Diagnosis audio must be a PCM16 mono 16 kHz WAV, at most 2 MiB and 15 seconds.
+- JPEG extension, MIME type, 1.5 MiB size, start/end markers and browser decoding (where `createImageBitmap` is available) are checked.
+- Diagnosis audio must be PCM16 mono 16 kHz WAV, at most 2 MiB and 15 seconds.
 - WAV parsing checks RIFF/WAVE length, format and data chunks, codec, sample rate, channels, bit depth, byte rate, block alignment and complete sample frames.
 - Retry reuses the current recording; clear resets the diagnosis and media.
 - Demo scenarios cover verified fault + safety warning, unverified result, clarification, no fault code, backend failure and simulated timeout.
@@ -33,10 +34,10 @@ All work remains unmerged. No pull requests were opened, nothing was merged into
 ### Billing
 
 - Voice recording and strict PCM WAV upload are supported.
-- The real extraction path calls POST /api/bill.
+- The real extraction path calls `POST /api/bill`.
 - Extracted part/labour rows are editable; rows can be added and removed.
 - Missing prices remain null and require explicit confirmation. Incomplete rows are not silently assigned guessed quantity, unit or type values.
-- Browser estimates are explicitly provisional. The production total and WhatsApp text must come from POST /api/bill/confirm.
+- Browser estimates are explicitly provisional. The production total and WhatsApp text must come from `POST /api/bill/confirm`.
 - A separate, explicitly labelled demo path simulates extraction and confirmation for frontend testing. Its arithmetic is not the production source of truth.
 - WhatsApp sharing is enabled only when the confirmation response is complete and contains server-generated text.
 - Up to 10 recent bill drafts are saved in localStorage. Audio and image bytes are not stored there.
@@ -57,7 +58,7 @@ All work remains unmerged. No pull requests were opened, nothing was merged into
 - Billing extraction is guarded against duplicate submission; editor controls are locked while extraction or confirmation is in progress.
 - Loading, error, incomplete, success and confirmation states are represented.
 - Keyboard tab navigation, visible focus, reduced-motion handling and responsive CSS rules are included.
-- The workspace status now reports that backend integration is pending rather than claiming the backend is operational.
+- The workspace status reports that backend integration is pending rather than claiming the backend is operational.
 
 ### API integration tests
 
@@ -65,32 +66,63 @@ All work remains unmerged. No pull requests were opened, nothing was merged into
 - Tests verify multipart fields and browser-managed multipart boundaries, JSON bodies, TTS Blob responses, structured API errors, non-JSON errors, network failures, timeouts, caller cancellation and malformed success JSON.
 - TTS caller cancellation is distinguished from timeout.
 
-## Verification performed
+## Verification
 
-The final local verification run on the stacked integration branch passed:
+### Local frontend verification
 
-- npm test: all five suites passed (audio, media, diagnosis, billing and API client).
-- npm run lint: passed.
-- npx tsc --noEmit: passed.
-- npm run build: passed; /, /signup and /workspace were prerendered.
-- git diff --check: passed.
-- Production smoke test: GET / and GET /workspace both returned HTTP 200.
+On the complete frontend integration branch:
 
-The frontend CI workflow now runs npm test rather than only the audio tests. GitHub Actions was not triggered for these branch pushes because the workflow runs on pull requests or pushes to main; no pull request was opened, consistent with the no-merge instruction.
+- `npm test`: all five suites passed (audio, media, diagnosis, billing and API client).
+- `npm run lint`: passed.
+- `npx tsc --noEmit`: passed.
+- `npm run build`: passed; `/`, `/signup` and `/workspace` were prerendered.
+- `git diff --check`: passed.
+- Production route smoke test: `GET /` and `GET /workspace` both returned HTTP 200.
 
-## Integration limits - not yet verified
+### GitHub Actions
 
-These are important and must not be described as complete:
+- Frontend CI for PR #10 completed successfully (run #18), including the expanded test suite.
+- Backend CI for PR #11 completed successfully on Python 3.11 and Python 3.14.
 
-- Person B's backend is not implemented yet. No real /health, /api/diagnose, /api/bill or /api/bill/confirm endpoint was available during this audit.
-- API tests use mocked fetch responses. They verify the client contract, not a live frontend-to-FastAPI exchange.
-- Actual model diagnosis accuracy, KB grounding against the deployed KB, extraction accuracy, backend Decimal arithmetic and server-side media validation remain pending.
-- Browser microphone permission, capture, audio playback and JPEG decoding should be manually tested on target Android/desktop browsers. The production HTTP smoke test is not an interactive UI test.
-- Visual QA at 360 px, 390 px, tablet and desktop has not been performed in a real browser session. Responsive CSS and breakpoints are present, but that is not equivalent to viewport-by-viewport visual verification.
+## Backend status after B0
+
+The FastAPI foundation is merged in PR #11:
+
+- `GET /health` returns the expected service payload.
+- `POST /api/diagnose`, `POST /api/bill`, `POST /api/bill/confirm` and `POST /api/tts` exist as explicit 503 stubs.
+- Pydantic request/response contracts, request IDs, standardized error envelopes, safe validation details and configurable CORS are in place.
+- Local backend tests: 20 passed.
+- A live local Uvicorn smoke test passed.
+- The actual frontend API client reached `/health` and sent multipart requests to the diagnosis and billing stubs; it correctly parsed their standardized 503 responses.
+
+**Not implemented yet:** real media decoding/validation, Gemini extraction, verified KB grounding, deterministic safety policy, bill extraction, server-side Decimal confirmation and TTS.
+
+## Integration limits still open
+
+- No real AI diagnosis or extraction has been tested.
+- No production KB has been activated. Source-pack KB and safety files are drafts; unverified entries must remain excluded. The Hindi strings in the draft safety file were observed to be garbled in the current local read, so they must not be used as-is.
+- Backend media validation and file-size enforcement are still pending.
+- Actual server-side Decimal arithmetic and WhatsApp message generation are pending.
+- Diagnosis TTS playback UI is not connected.
+- Browser microphone permission, capture, playback and JPEG decoding need manual testing on target Android/desktop browsers.
+- Visual QA at 360 px, 390 px, tablet and desktop has not been completed in a real browser session.
 - WhatsApp handoff has not been tested on a device with WhatsApp installed.
-- TTS API client behaviour is tested, but diagnosis TTS playback UI is not connected.
 - Render/Vercel services and deployments have not been created.
 
-## Integration recommendation
+## Branch history and cleanup
 
-Keep the current branch stack unmerged until Person B supplies the backend skeleton. Then test /health and /api/diagnose against the actual FastAPI service, followed by /api/bill and /api/bill/confirm. Only after those contract tests pass should the team authorize integration into main and deployment.
+- `frontend` is retained as the original frontend development-history branch.
+- `feat/audio-pipeline` is retained as the audio implementation-history branch.
+- The six frontend feature branches are retained as development history after merging.
+- `feat/frontend-main` was deleted after confirming it pointed to the same commit as `frontend`, while that commit was already behind and contained in `main`.
+- The local `feat/frontend-workspace` history branch is preserved.
+- PR #1 remains closed without merge; PR #2 and #3 are merged; PR #4 was closed without merge; PRs #5–#11 are merged.
+
+## Next implementation order
+
+1. Backend B1: strict in-memory media validation and decoding.
+2. Diagnosis structured extraction, verified-only KB grounding and deterministic safety.
+3. Billing extraction and server-side Decimal confirmation.
+4. One TTS provider or documented 503 fallback.
+5. Real frontend/backend integration and device QA.
+6. Render/Vercel deployment only after both golden paths work safely.
