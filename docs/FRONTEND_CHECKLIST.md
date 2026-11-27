@@ -1,19 +1,30 @@
 # Person A — Frontend Execution Checklist
 
-## F0 — Foundation (started)
+## F0 — Foundation
 
 - [x] Create Next.js App Router + TypeScript + Tailwind project
 - [x] Establish root monorepo and source-pack layout
-- [x] Add mobile-first workshop dashboard shell
-- [x] Add Diagnose / Billing workflow navigation
+- [x] Add mobile-first workshop workspace shell
+- [x] Add Diagnose / Billing workflow switcher
 - [x] Add browser microphone capture with 15-second cap
 - [x] Add optional audio and image file selection
 - [x] Add sample diagnosis panel with safety warning before steps
 - [x] Add editable bill rows and subtotal
-- [x] Add frontend README and scope notes
 - [x] Run ESLint and production build
 
-## F1 — UX and capture hardening
+## F1 — Pitch-deck-aligned landing and visual system
+
+- [x] Inspect all nine pitch deck slides and translate the visual language into design tokens
+- [x] Create landing page at /
+- [x] Move the existing diagnosis/billing workspace to /workspace
+- [x] Add phone UI hero visual and the two golden paths
+- [x] Add CSS grid / paper-grain textures
+- [x] Add IntersectionObserver scroll reveals and reduced-motion support
+- [x] Align workspace palette with the deck
+- [ ] Review on real phone widths and refine spacing after visual QA
+- [ ] Review landing copy with product owner
+
+## F2 — Capture hardening
 
 - [ ] Test layout at 360px, 390px, tablet, and desktop widths
 - [ ] Add explicit recording permission / unsupported-browser states
@@ -23,7 +34,7 @@
 - [ ] Add keyboard and screen-reader labels to all controls
 - [ ] Confirm all user-visible demo states are marked as sample/mock
 
-## F2 — API integration preparation
+## F3 — API integration preparation
 
 - [ ] Freeze shared API contract with Person B
 - [ ] Add typed request/response models from the approved contract
@@ -33,7 +44,7 @@
 - [ ] Add deterministic client-side form validation (backend remains authoritative)
 - [ ] Add WhatsApp handoff using backend-generated bill text only
 
-## F3 — Release readiness
+## F4 — Release readiness
 
 - [ ] Add component / interaction tests
 - [ ] Verify production build and lint in CI

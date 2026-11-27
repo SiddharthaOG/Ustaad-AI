@@ -2,6 +2,11 @@
 
 Next.js App Router + TypeScript + Tailwind CSS.
 
+## Routes
+
+- `/` — pitch-deck-aligned product landing page
+- `/workspace` — interactive diagnosis and billing prototype
+
 ## Run locally
 
 ```powershell
@@ -13,7 +18,9 @@ Open http://localhost:3000.
 
 ## Current state
 
-The current interface is a frontend prototype with local-only interactions and clearly labelled sample diagnosis data. It does not call the backend yet.
+The landing page translates the supplied nine-slide pitch deck into the web visual system: charcoal and warm ivory surfaces, saffron accent, workshop-green status cues, monospaced labels, blueprint/paper textures and restrained scroll reveals.
+
+The workspace remains a frontend prototype with local-only interactions and clearly labelled sample diagnosis data. It does not call the backend yet.
 
 - Diagnosis and billing workflow switcher
 - Browser microphone recording (15-second cap)
