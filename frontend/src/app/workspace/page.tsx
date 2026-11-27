@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 
 import { useEffect, useRef, useState } from "react";
 import { useAudioRecorder } from "@/lib/audio/use-audio-recorder";
 import { useLiveTranscript } from "@/lib/audio/use-live-transcript";
-import { validateAudioFile } from "@/lib/audio/audio-file";
 import { ustaadApi, UstaadApiError } from "@/lib/api/client";
 import type { DiagnosisResponse, SupportedLanguage } from "@/lib/api/contracts";
+import { validateDiagnosisImage, validateDiagnosisWav } from "@/lib/media-validation";
+import { diagnosisDemoScenarios, type DiagnosisDemoScenario } from "@/lib/api/diagnosis-scenarios";
+import { normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
 import { DiagnosisResult } from "./diagnosis-result";
 
 type Mode = "diagnose" | "billing";
@@ -35,7 +38,11 @@ export default function Home() {
   const recording = recorderStatus === "recording";
   const [photoName, setPhotoName] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
+  const [photoValidationError, setPhotoValidationError] = useState("");
   const [diagnosis, setDiagnosis] = useState<DiagnosisResponse | null>(null);
+  const [diagnosisWarnings, setDiagnosisWarnings] = useState<string[]>([]);
+  const [demoScenario, setDemoScenario] = useState<DiagnosisDemoScenario>("verified-safety");
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
   const [diagnosisError, setDiagnosisError] = useState("");
   const [diagnosisSubmitted, setDiagnosisSubmitted] = useState(false);
@@ -48,6 +55,7 @@ export default function Home() {
 
   const audioUrl = recordedAudioUrl || uploadedAudioUrl;
   useEffect(() => () => { if (uploadedAudioUrl) URL.revokeObjectURL(uploadedAudioUrl); }, [uploadedAudioUrl]);
+  useEffect(() => () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); }, [photoPreviewUrl]);
 
   const beginRecording = () => {
     setUploadedAudioUrl("");
@@ -55,6 +63,7 @@ export default function Home() {
     setAudioName("");
     setAudioValidationError("");
     setDiagnosis(null);
+    setDiagnosisWarnings([]);
     setDiagnosisError("");
     setDiagnosisSubmitted(false);
     void startRecording();
@@ -62,13 +71,13 @@ export default function Home() {
   };
   const endRecording = () => { void stopRecording(); liveTranscript.stop(); };
   const clearAudio = () => {
-    clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); setDiagnosis(null); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (audioInput.current) audioInput.current.value = "";
   };
   const handleAudioFile = async (file?: File) => {
     if (!file) return;
-    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setDiagnosis(null); setDiagnosisError(""); setDiagnosisSubmitted(false);
-    const validation = await validateAudioFile(file);
+    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    const validation = await validateDiagnosisWav(file);
     if (!validation.valid) { setAudioName(""); setAudioValidationError(validation.message); if (audioInput.current) audioInput.current.value = ""; return; }
     setUploadedAudioUrl(URL.createObjectURL(validation.file)); setUploadedAudioFile(validation.file); setAudioName(validation.file.name); setAudioValidationError("");
   };
@@ -85,8 +94,9 @@ export default function Home() {
       setDiagnosisSubmitted(false);
       return;
     }
-    if (!audio.name.toLowerCase().endsWith(".wav")) {
-      setDiagnosisError("The current backend contract accepts PCM WAV audio only. Record directly in Ustaad or upload a WAV file.");
+    const audioValidation = await validateDiagnosisWav(audio);
+    if (!audioValidation.valid) {
+      setDiagnosisError(audioValidation.message);
       setDiagnosis(null);
       setDiagnosisSubmitted(false);
       return;
@@ -99,18 +109,45 @@ export default function Home() {
     try {
       const lang: SupportedLanguage = transcriptLanguage === "hi-IN" ? "hi" : "en";
       const response = await ustaadApi.diagnose(
-        { audio, image: photoFile, lang },
+        { audio: audioValidation.file, image: photoFile, lang },
         { timeoutMs: 90_000 },
       );
-      setDiagnosis(response);
+      const normalized = normalizeDiagnosisResponse(response);
+      setDiagnosis(normalized.result);
+      setDiagnosisWarnings(normalized.warnings);
     } catch (error) {
       setDiagnosisError(
         error instanceof UstaadApiError
           ? error.message
-          : "Something went wrong while analysing the recording. Please try again.",
+          : error instanceof Error ? error.message : "Something went wrong while analysing the recording. Please try again.",
       );
     } finally {
       setDiagnosisLoading(false);
+    }
+  };
+
+  const clearDiagnosis = () => {
+    clearAudio();
+    setPhotoFile(null); setPhotoName(""); setPhotoValidationError(""); setPhotoPreviewUrl("");
+    setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    if (photoInput.current) photoInput.current.value = "";
+  };
+
+  const runDiagnosisDemo = async () => {
+    const scenario = diagnosisDemoScenarios[demoScenario];
+    setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisSubmitted(true); setDiagnosisError("");
+    if (scenario.error) {
+      if (demoScenario === "timeout") {
+        setDiagnosisLoading(true);
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        setDiagnosisLoading(false);
+      }
+      setDiagnosisError(scenario.error);
+      return;
+    }
+    if (scenario.result) {
+      const normalized = normalizeDiagnosisResponse(scenario.result);
+      setDiagnosis(normalized.result); setDiagnosisWarnings(normalized.warnings);
     }
   };
 
@@ -172,12 +209,12 @@ export default function Home() {
                   <div className="or-divider"><span /> OR <span /></div>
                   <button className="upload-audio" onClick={() => audioInput.current?.click()}><Icon>↑</Icon><span><strong>Upload an audio clip</strong><small>PCM WAV · 16 kHz mono · Max 2 MB</small></span><b>Browse files</b></button>
                   <input ref={audioInput} type="file" accept=".wav,audio/wav" hidden onChange={(e) => void handleAudioFile(e.target.files?.[0])} />
-                  <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>A photo of the unit or its error code helps.</small>{photoName && <small className="file-picked">✓ {photoName}</small>}</div><button onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/jpeg,.jpg,.jpeg" hidden onChange={(e) => { const file = e.target.files?.[0] || null; setPhotoFile(file); setPhotoName(file?.name || ""); setDiagnosis(null); setDiagnosisError(""); setDiagnosisSubmitted(false); }} /></div>
-                  <button className="primary-button full-button" onClick={() => void analyseDiagnosis()} disabled={diagnosisLoading || recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing"}>{diagnosisLoading ? "Analysing…" : "Analyse the problem"} <span>→</span></button>
+                  <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>JPEG only · Max 1.5 MB</small>{photoName && <small className="file-picked">✓ {photoName}</small>}{photoValidationError && <small className="file-picked" role="alert">{photoValidationError}</small>}</div><button type="button" onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/jpeg,.jpg,.jpeg" hidden onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; void (async () => { const validation = await validateDiagnosisImage(file); if (!validation.valid) { setPhotoValidationError(validation.message); setPhotoFile(null); setPhotoName(""); setPhotoPreviewUrl(""); if (photoInput.current) photoInput.current.value = ""; return; } setPhotoFile(validation.file); setPhotoName(validation.file.name); setPhotoValidationError(""); setPhotoPreviewUrl(URL.createObjectURL(validation.file)); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false); })(); }} /></div>{photoPreviewUrl && <div className="photo-preview"><Image src={photoPreviewUrl} alt="Selected equipment for diagnosis" width={184} height={144} unoptimized /><button type="button" onClick={() => { setPhotoFile(null); setPhotoName(""); setPhotoPreviewUrl(""); setPhotoValidationError(""); if (photoInput.current) photoInput.current.value = ""; }}>Remove photo</button></div>}
+                  <button className="primary-button full-button" onClick={() => void analyseDiagnosis()} disabled={diagnosisLoading || recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing"}>{diagnosisLoading ? "Analysing…" : "Analyse the problem"} <span>→</span></button><div className="diagnosis-actions"><button type="button" onClick={clearDiagnosis}>Clear diagnosis</button><div className="demo-controls"><label htmlFor="diagnosis-demo">Demo scenario</label><select id="diagnosis-demo" value={demoScenario} onChange={(event) => setDemoScenario(event.target.value as DiagnosisDemoScenario)}>{Object.entries(diagnosisDemoScenarios).map(([key, scenario]) => <option key={key} value={key}>{scenario.label}</option>)}</select><button type="button" onClick={() => void runDiagnosisDemo()} disabled={diagnosisLoading}>Run demo</button></div></div>
                   <div className="privacy-note"><Icon>♢</Icon> Ustaad does not store recordings. Live text preview may use your browser speech provider.</div>
                 </section>
 
-                <DiagnosisResult result={diagnosis} loading={diagnosisLoading} error={diagnosisError} hasSubmitted={diagnosisSubmitted} />
+                <DiagnosisResult result={diagnosis} loading={diagnosisLoading} error={diagnosisError} hasSubmitted={diagnosisSubmitted} warnings={diagnosisWarnings} onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined} />
               </div>
 
               <aside className="right-column">

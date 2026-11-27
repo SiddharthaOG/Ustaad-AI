@@ -5,10 +5,12 @@ type Props = {
   loading: boolean;
   error: string;
   hasSubmitted: boolean;
+  warnings?: string[];
+  onRetry?: () => void;
   onSpeak?: () => void;
 };
 
-export function DiagnosisResult({ result, loading, error, hasSubmitted, onSpeak }: Props) {
+export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak }: Props) {
   return (
     <section className="panel result-panel" aria-labelledby="diagnosis-heading" aria-live="polite">
       <div className="result-top">
@@ -31,6 +33,7 @@ export function DiagnosisResult({ result, loading, error, hasSubmitted, onSpeak 
           <strong>We couldn’t complete the diagnosis.</strong>
           <p>{error}</p>
           <small>Your recording stays here. Check the connection and try again.</small>
+          {onRetry && <button type="button" className="diagnosis-retry" onClick={onRetry}>Retry with the same recording</button>}
         </div>
       ) : !result ? (
         <div className="empty-result">
@@ -38,6 +41,7 @@ export function DiagnosisResult({ result, loading, error, hasSubmitted, onSpeak 
         </div>
       ) : (
         <>
+          {warnings.length > 0 && <div className="diagnosis-response-warning" role="status"><strong>Incomplete response</strong><ul>{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>}
           <div className="fault-title">
             <div className="fault-icon">⌁</div>
             <div>
@@ -47,12 +51,10 @@ export function DiagnosisResult({ result, loading, error, hasSubmitted, onSpeak 
             <span className={result.grounded ? "confidence verified-confidence" : "confidence"}>{result.grounded ? "Grounded" : "Unverified"}</span>
           </div>
 
-          {result.transcript && (
-            <div className="diagnosis-transcript">
-              <strong>What Ustaad heard</strong>
-              <p>{result.transcript}</p>
-            </div>
-          )}
+          <div className="diagnosis-transcript">
+            <strong>What Ustaad heard</strong>
+            <p>{result.transcript || "No transcript was returned. Please verify the recording or provide the symptoms again."}</p>
+          </div>
 
           {result.safety_alert?.trim() && (
             <div className="safety-alert" role="alert">
