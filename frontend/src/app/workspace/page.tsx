@@ -52,7 +52,7 @@ export default function Home() {
   const audioUrl = recordedAudioUrl || uploadedAudioUrl;
   useEffect(() => () => { if (uploadedAudioUrl) URL.revokeObjectURL(uploadedAudioUrl); }, [uploadedAudioUrl]);
   useEffect(() => () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); }, [photoPreviewUrl]);
-  useEffect(() => () => { diagnosisAbort.current?.abort(); }, []);
+  useEffect(() => () => { demoRunId.current += 1; diagnosisAbort.current?.abort(); }, []);
 
   const cancelDiagnosisRequest = () => {
     diagnosisSubmissionId.current += 1;
