@@ -24,17 +24,21 @@
 - [ ] Review on real phone widths and refine spacing after visual QA
 - [ ] Review landing copy with product owner
 
-## F2 — Capture hardening
+## F2 ? Capture hardening
 
 - [ ] Test layout at 360px, 390px, tablet, and desktop widths
 - [x] Add explicit microphone permission / unsupported-browser error states
 - [x] Replace MediaRecorder capture with AudioWorklet mono 16 kHz signed PCM WAV encoding
 - [x] Enforce 15-second capture duration and 2 MB generated-WAV limit
-- [ ] Perform real microphone capture QA in supported desktop and Android browsers
-- [ ] Validate uploaded audio files against type and 2 MB limits
+- [x] User-tested microphone permission, recording, stop and transcription on current device
+- [ ] Repeat microphone QA on Android and other supported browsers
+- [x] Validate uploaded WAV / MP3 / M4A files by extension, signature and 2 MB limit
+- [x] Add audio review playback, clear and retake controls
 - [ ] Enforce image (1.5 MB) client-side limit
 - [ ] Add image preview and remove action
-- [ ] Add audio playback / retake / clear action
+- [x] Add editable live transcript preview with explicit browser-speech opt-in (Hindi / Indian English)
+- [x] Add automated audio codec / file validation tests
+- [ ] Add browser/device transcription accuracy tests using supplied Hindi/Hinglish clips
 - [ ] Add keyboard and screen-reader labels to all controls
 - [ ] Confirm all user-visible demo states are marked as sample/mock
 

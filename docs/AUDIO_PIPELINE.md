@@ -1,65 +1,72 @@
-# Browser Audio Pipeline ? v0.1
+# Browser Audio Pipeline - v0.2
 
-## Scope and source alignment
+## Scope
 
-This is the Person A browser-capture implementation for the Diagnose golden path. It is deliberately limited to capture, normalization, validation, and a handoff-ready WAV Blob. It does not call the API, transcribe audio, persist recordings, or implement TTS.
+Person A owns browser-side capture, review, upload pre-validation and transcript preview for the Diagnose and Billing golden paths. This layer does not call the backend, perform semantic diagnosis, calculate bills, or persist recordings.
 
-The workflow follows the Ustaad AI Workflow and Implementation Blueprint and Person A's Capture Hardening milestone:
-- microphone capture is capped at 15 seconds;
-- captured audio is normalized to mono, 16,000 Hz, signed 16-bit PCM WAV;
-- the upload artifact is validated against the 2 MB audio limit;
-- microphone tracks and AudioContext resources are released after stop or failure;
-- audio remains in browser memory only and is not persisted.
-
-The API fixture is a response fixture, not an audio-upload request schema. The WAV format here follows the agreed implementation notes; final multipart field names and accepted upload formats must be confirmed in the shared API contract with Person B before integration.
-
-## Architecture
+## Capture architecture
 
 ```text
 User gesture
-  -> getUserMedia({ audio: true })
+  -> getUserMedia
   -> AudioContext + AudioWorklet
-  -> mono Float32 PCM frames (device/context sample rate)
-  -> bounded in-memory frame buffer (<= 15 s)
-  -> linear resampler (context rate -> 16 kHz)
-  -> signed PCM16 encoder + 44-byte RIFF/WAVE header
-  -> validate duration / MIME / byte size
-  -> WAV Blob held in React state
-  -> (later) API client multipart request
+  -> mono Float32 frames (browser context rate)
+  -> bounded in-memory buffer (maximum 15 seconds)
+  -> resample to 16 kHz
+  -> encode signed PCM16 WAV
+  -> validate duration and <= 2 MiB output
+  -> review / playback / retake / clear
+  -> later: approved multipart API contract
 ```
 
-### Module boundaries
+### Modules
 
-- `public/audio/pcm-capture-processor.js`: tiny AudioWorklet processor; captures channel 0 and transfers frame buffers to the main thread.
-- `src/lib/audio/wav.ts`: pure resampling and WAV encoding helpers, independently testable.
-- `src/lib/audio/use-audio-recorder.ts`: browser lifecycle, permission handling, state, timer, resource cleanup, and output Blob.
-- `workspace/page.tsx`: presentation and user actions only; no DSP or WAV encoding logic.
+- `public/audio/pcm-capture-processor.js`: captures mono Float32 frames through AudioWorklet.
+- `src/lib/audio/wav.ts`: resampling, PCM16 WAV encoding and capture limits.
+- `src/lib/audio/use-audio-recorder.ts`: permission handling, recorder lifecycle, timer, cleanup, output Blob and preview URL.
+- `src/lib/audio/audio-file.ts`: pre-validates uploaded WAV, MP3 and M4A files by size, extension and basic container/codec signatures.
+- `src/lib/audio/use-live-transcript.ts`: optional Web Speech API transcript preview for `hi-IN` or `en-IN`.
+- `src/lib/audio/audio.test.mjs`: Node built-in tests for resampling, WAV output and file validation.
+- `src/app/workspace/page.tsx`: presentation and user actions; no DSP or encoding logic.
 
-### State model
+## Audio upload rules
 
-`idle -> requesting -> recording -> processing -> ready`
+- Allowed filename extensions: `.wav`, `.mp3`, `.m4a`.
+- File must be non-empty and no larger than 2 MiB.
+- Extension must match the inspected file signature.
+- WAV must have a RIFF/WAVE header, a complete header and PCM integer (format 1) or IEEE-float (format 3) codec marker.
+- MP3 is checked for an MPEG audio frame sync, including after an ID3 tag.
+- M4A is checked for an ISO base-media `ftyp` marker and a supported major brand.
+- These are frontend preflight checks, not full media decoding. The backend must independently validate, decode and normalize uploaded media. This frontend does not transcode uploaded MP3/M4A files.
 
-Failures transition to `error`. `clear()` returns to `idle`; starting a new recording from `ready` is allowed. Stop is idempotent. The maximum duration triggers the same stop path as the user's stop action.
+## Transcript preview and correctness
 
-### Constraints and failure handling
+- Live transcription is opt-in. The browser speech provider may process audio outside Ustaad; the UI discloses this before enabling it.
+- The browser API is not consistently available and may differ by browser/device. The preview currently offers Hindi (`hi-IN`) and Indian English (`en-IN`); mixed Hindi-English recognition quality is not guaranteed.
+- The transcript is editable and must be treated as a draft, not as a verified record of what the technician said.
+- The frontend does not claim semantic correctness. Model names, error codes, quantities and prices must be reviewed by the user. After backend integration, ambiguity must be represented using the contract's `needs_confirmation` and `confirm_question` fields; missing bill prices must remain unconfirmed.
+- No translation engine is implemented here. Translation or language normalization must be an explicit backend/product decision, not an invisible rewrite of the technician's words.
 
-- Secure context is required (`https` or localhost); unavailable APIs produce an actionable error.
-- Permission denied, missing device, unsupported AudioWorklet, AudioContext failure, empty capture, and oversize output are explicit errors.
-- The timer is a UI indicator and safety cap; the final PCM frame count is also checked to enforce <= 15 seconds.
-- 16 kHz mono PCM16 at 15 seconds is approximately 480 KB, comfortably below 2 MB, but the byte limit is still enforced.
-- No audio is written to localStorage, IndexedDB, disk, or a server by this module.
+## Privacy and lifecycle
 
-## Acceptance checks
+- Recorded WAV remains in browser memory and is not written to localStorage, IndexedDB or disk.
+- Microphone tracks and AudioContext are released on stop, clear, error and unmount.
+- Object URLs are revoked when previews are replaced, cleared or unmounted.
+- The optional browser speech preview is a separate third-party/browser-controlled processing path and requires explicit opt-in.
 
-1. Output Blob MIME is `audio/wav`.
-2. RIFF/WAVE header is valid.
-3. Format code is 1 (integer PCM), channels 1, sample rate 16000, byte rate 32000, block align 2, bits/sample 16.
-4. Duration is greater than zero and no more than 15 seconds.
-5. Data size is even and total size is <= 2 MiB.
-6. Permission denial and unsupported browser paths show an error and release acquired resources.
-7. Stop and unmount release microphone tracks and close AudioContext.
-8. No network request or persistence occurs in this capture layer.
+## Automated checks
 
-## Not included in this milestone
+Run `npm run test:audio` from `frontend`. Tests currently cover:
 
-Audio file upload normalization, transcription, API request wiring, retry/idempotency, TTS playback, offline support, and backend validation. These remain separate tasks after the shared API contract is frozen.
+1. 48 kHz to 16 kHz resampling.
+2. PCM16 mono 16 kHz WAV headers and expected size.
+3. WAV, MP3 and M4A signatures.
+4. Unsupported extension, empty and oversized files.
+5. Extension/signature mismatch and unsupported WAV codec.
+6. Truncated WAV rejection and the 15-second / 2 MiB limits.
+
+Speech-to-text accuracy, translation and real codec decoding are not covered by these unit tests. `source-pack/test_clips_diagnose.csv` and `source-pack/test_clips_billing.csv` provide expected spoken phrases and expected interpretation fields, but they are text scripts rather than recorded audio. `source-pack/make_synthetic_clips.py` can generate synthetic TTS WAVs for pipeline testing; keep generated clips outside the hackathon repository and do not use synthetic results to claim real-world accuracy. Real accuracy requires browser/device tests with recordings from technicians and the backend's chosen transcription/decoding implementation.
+
+## API boundary
+
+The existing `api_contract_examples.json` contains response fixtures, not the multipart request schema. Do not invent multipart field names or send files until Person A and Person B freeze the shared API contract. The backend remains authoritative for upload validation, transcript interpretation, safety, bill arithmetic and confirmation rules.
