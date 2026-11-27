@@ -34,6 +34,9 @@ The workspace remains a frontend prototype with local-only interactions and clea
 - `npm run dev` — local development
 - `npm run lint` — ESLint
 - `npm run build` — production build
+- `npm run test:audio` — audio capture/validation unit tests (available on the audio pipeline branch)
+
+Pull requests run GitHub Actions checks for ESLint, the audio test suite when present, and a production build.
 
 ## Integration rule
 
