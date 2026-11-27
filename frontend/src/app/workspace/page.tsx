@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { useAudioRecorder } from "@/lib/audio/use-audio-recorder";
 import { useLiveTranscript } from "@/lib/audio/use-live-transcript";
 import { validateAudioFile } from "@/lib/audio/audio-file";
+import { ustaadApi, UstaadApiError } from "@/lib/api/client";
+import type { DiagnosisResponse, SupportedLanguage } from "@/lib/api/contracts";
+import { DiagnosisResult } from "./diagnosis-result";
 
 type Mode = "diagnose" | "billing";
 type LineItem = { id: number; name: string; kind: "Part" | "Labour"; price: number };
@@ -26,14 +29,19 @@ export default function Home() {
   const liveTranscript = useLiveTranscript();
   const [transcriptLanguage, setTranscriptLanguage] = useState<"hi-IN" | "en-IN">("hi-IN");
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
+  const [uploadedAudioFile, setUploadedAudioFile] = useState<File | null>(null);
   const [audioValidationError, setAudioValidationError] = useState("");
   const [liveTextEnabled, setLiveTextEnabled] = useState(false);
   const recording = recorderStatus === "recording";
   const [photoName, setPhotoName] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [diagnosis, setDiagnosis] = useState<DiagnosisResponse | null>(null);
+  const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [diagnosisError, setDiagnosisError] = useState("");
+  const [diagnosisSubmitted, setDiagnosisSubmitted] = useState(false);
   const [items, setItems] = useState(initialItems);
   const [customer, setCustomer] = useState("Ramesh Kumar");
   const [job, setJob] = useState("AC is running, but not cooling properly");
-  const [showResult, setShowResult] = useState(true);
   const [notice, setNotice] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
@@ -43,22 +51,67 @@ export default function Home() {
 
   const beginRecording = () => {
     setUploadedAudioUrl("");
+    setUploadedAudioFile(null);
     setAudioName("");
     setAudioValidationError("");
+    setDiagnosis(null);
+    setDiagnosisError("");
+    setDiagnosisSubmitted(false);
     void startRecording();
     if (liveTextEnabled) liveTranscript.start(transcriptLanguage);
   };
   const endRecording = () => { void stopRecording(); liveTranscript.stop(); };
   const clearAudio = () => {
-    clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setAudioName(""); setAudioValidationError("");
+    clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); setDiagnosis(null); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (audioInput.current) audioInput.current.value = "";
   };
   const handleAudioFile = async (file?: File) => {
     if (!file) return;
-    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setAudioName("");
+    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setDiagnosis(null); setDiagnosisError(""); setDiagnosisSubmitted(false);
     const validation = await validateAudioFile(file);
     if (!validation.valid) { setAudioName(""); setAudioValidationError(validation.message); if (audioInput.current) audioInput.current.value = ""; return; }
-    setUploadedAudioUrl(URL.createObjectURL(validation.file)); setAudioName(validation.file.name); setAudioValidationError("");
+    setUploadedAudioUrl(URL.createObjectURL(validation.file)); setUploadedAudioFile(validation.file); setAudioName(validation.file.name); setAudioValidationError("");
+  };
+
+
+  const analyseDiagnosis = async () => {
+    const audio = audioBlob
+      ? new File([audioBlob], "ustaad-recording.wav", { type: "audio/wav" })
+      : uploadedAudioFile;
+
+    if (!audio) {
+      setDiagnosisError("Record a voice note or upload an audio clip before analysing.");
+      setDiagnosis(null);
+      setDiagnosisSubmitted(false);
+      return;
+    }
+    if (!audio.name.toLowerCase().endsWith(".wav")) {
+      setDiagnosisError("The current backend contract accepts PCM WAV audio only. Record directly in Ustaad or upload a WAV file.");
+      setDiagnosis(null);
+      setDiagnosisSubmitted(false);
+      return;
+    }
+
+    setDiagnosisLoading(true);
+    setDiagnosisError("");
+    setDiagnosis(null);
+    setDiagnosisSubmitted(true);
+    try {
+      const lang: SupportedLanguage = transcriptLanguage === "hi-IN" ? "hi" : "en";
+      const response = await ustaadApi.diagnose(
+        { audio, image: photoFile, lang },
+        { timeoutMs: 90_000 },
+      );
+      setDiagnosis(response);
+    } catch (error) {
+      setDiagnosisError(
+        error instanceof UstaadApiError
+          ? error.message
+          : "Something went wrong while analysing the recording. Please try again.",
+      );
+    } finally {
+      setDiagnosisLoading(false);
+    }
   };
 
   const total = items.reduce((sum, item) => sum + item.price, 0);
@@ -115,19 +168,16 @@ export default function Home() {
                   {recorderError && <p className="file-picked" role="alert">{recorderError}</p>}
                   {audioValidationError && <p className="file-picked" role="alert">{audioValidationError}</p>}
                   {audioUrl && <div className="audio-review"><div><strong>Review your audio</strong><small>Listen before sending it to Ustaad.</small></div><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported by this browser.</audio><div className="audio-review-actions"><button type="button" onClick={() => { clearAudio(); beginRecording(); }}>Retake</button><button type="button" onClick={clearAudio}>Clear</button></div></div>}
-                  <section className="transcript-card" aria-label="Live transcript review"><div className="transcript-heading"><div><strong>Live transcript</strong><small>Like a voice note that writes itself. Speech recognition is a draft. Check names, model codes and details before analysis.</small></div><select aria-label="Transcription language" value={transcriptLanguage} onChange={(event) => setTranscriptLanguage(event.target.value as "hi-IN" | "en-IN")}><option value="hi-IN">Hindi</option><option value="en-IN">English</option></select></div><label className="transcript-opt-in"><input type="checkbox" checked={liveTextEnabled} onChange={(event) => { setLiveTextEnabled(event.target.checked); if (event.target.checked && recording) liveTranscript.start(transcriptLanguage); else if (!event.target.checked) liveTranscript.stop(); }} /> Enable live text preview <span>(Hindi / English preview; mixed speech may be imperfect. Your browser speech provider may process audio.)</span></label><textarea value={liveTranscript.transcript} onChange={(event) => liveTranscript.setTranscript(event.target.value)} placeholder="Your words will appear here while you speak. You can edit them before continuing." rows={3} aria-label="Edit spoken transcript"/><div className="transcript-foot">{liveTranscript.interim && <span className="transcript-interim">Hearing: {liveTranscript.interim}</span>}{!liveTranscript.supported && <span>Live text is not supported in this browser; you can type here instead.</span>}{liveTranscript.transcriptError && <span role="status">{liveTranscript.transcriptError}</span>}<button type="button" onClick={liveTranscript.clear} disabled={!liveTranscript.transcript && !liveTranscript.interim}>Clear text</button></div></section>
+                  <section className="transcript-card" aria-label="Live transcript review"><div className="transcript-heading"><div><strong>Live transcript</strong><small>Browser speech preview only. The backend analyses the audio recording independently; verify names and model codes.</small></div><select aria-label="Transcription language" value={transcriptLanguage} onChange={(event) => setTranscriptLanguage(event.target.value as "hi-IN" | "en-IN")}><option value="hi-IN">Hindi</option><option value="en-IN">English</option></select></div><label className="transcript-opt-in"><input type="checkbox" checked={liveTextEnabled} onChange={(event) => { setLiveTextEnabled(event.target.checked); if (event.target.checked && recording) liveTranscript.start(transcriptLanguage); else if (!event.target.checked) liveTranscript.stop(); }} /> Enable live text preview <span>(Hindi / English preview; mixed speech may be imperfect. Your browser speech provider may process audio.)</span></label><textarea value={liveTranscript.transcript} onChange={(event) => liveTranscript.setTranscript(event.target.value)} placeholder="Your words will appear here while you speak. You can edit them before continuing." rows={3} aria-label="Edit spoken transcript"/><div className="transcript-foot">{liveTranscript.interim && <span className="transcript-interim">Hearing: {liveTranscript.interim}</span>}{!liveTranscript.supported && <span>Live text is not supported in this browser; you can type here instead.</span>}{liveTranscript.transcriptError && <span role="status">{liveTranscript.transcriptError}</span>}<button type="button" onClick={liveTranscript.clear} disabled={!liveTranscript.transcript && !liveTranscript.interim}>Clear text</button></div></section>
                   <div className="or-divider"><span /> OR <span /></div>
-                  <button className="upload-audio" onClick={() => audioInput.current?.click()}><Icon>↑</Icon><span><strong>Upload an audio clip</strong><small>WAV, MP3 or M4A · Max 2 MB</small></span><b>Browse files</b></button>
-                  <input ref={audioInput} type="file" accept=".wav,.mp3,.m4a,audio/wav,audio/mpeg,audio/mp4" hidden onChange={(e) => void handleAudioFile(e.target.files?.[0])} />
-                  <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>A photo of the unit or its error code helps.</small>{photoName && <small className="file-picked">✓ {photoName}</small>}</div><button onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/*" hidden onChange={(e) => setPhotoName(e.target.files?.[0]?.name || "")} /></div>
-                  <button className="primary-button full-button" onClick={() => { setShowResult(true); setNotice("Demo result shown below. Live diagnosis will connect when the backend API is ready."); }}>Analyse the problem <span>→</span></button>
+                  <button className="upload-audio" onClick={() => audioInput.current?.click()}><Icon>↑</Icon><span><strong>Upload an audio clip</strong><small>PCM WAV · 16 kHz mono · Max 2 MB</small></span><b>Browse files</b></button>
+                  <input ref={audioInput} type="file" accept=".wav,audio/wav" hidden onChange={(e) => void handleAudioFile(e.target.files?.[0])} />
+                  <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>A photo of the unit or its error code helps.</small>{photoName && <small className="file-picked">✓ {photoName}</small>}</div><button onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/jpeg,.jpg,.jpeg" hidden onChange={(e) => { const file = e.target.files?.[0] || null; setPhotoFile(file); setPhotoName(file?.name || ""); setDiagnosis(null); setDiagnosisError(""); setDiagnosisSubmitted(false); }} /></div>
+                  <button className="primary-button full-button" onClick={() => void analyseDiagnosis()} disabled={diagnosisLoading || recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing"}>{diagnosisLoading ? "Analysing…" : "Analyse the problem"} <span>→</span></button>
                   <div className="privacy-note"><Icon>♢</Icon> Ustaad does not store recordings. Live text preview may use your browser speech provider.</div>
                 </section>
 
-                <section className="panel result-panel">
-                  <div className="result-top"><div><span className="step-label">STEP 02 · USTAAD’S FINDINGS</span><h2>Diagnosis overview</h2></div><span className="demo-tag">SAMPLE RESULT</span></div>
-                  {showResult ? <><div className="fault-title"><div className="fault-icon">⌁</div><div><strong>Possible capacitor issue</strong><small>AC runs, but cooling is weak or absent</small></div><span className="confidence">Needs verification</span></div><div className="safety-alert"><span className="safety-symbol">!</span><div><strong>Safety first</strong><p>Switch off the unit at the mains before opening the panel. Capacitors can retain a dangerous electrical charge even after power is disconnected.</p></div></div><div className="steps-heading">Suggested checks <span>UP TO 4 STEPS</span></div><ol className="repair-steps"><li><span>1</span><div><strong>Isolate the power supply</strong><p>Turn off the MCB and verify the unit is de-energised.</p></div></li><li><span>2</span><div><strong>Inspect the capacitor</strong><p>Look for bulging, leakage or visible damage. Do not touch terminals.</p></div></li><li><span>3</span><div><strong>Test capacitance</strong><p>Use a suitable meter and compare the reading with the rated value.</p></div></li></ol><div className="source-note"><span>ⓘ</span> Sample interface only — no fault code has been verified for a specific model.</div></> : <div className="empty-result">Your diagnosis will appear here after analysis.</div>}
-                </section>
+                <DiagnosisResult result={diagnosis} loading={diagnosisLoading} error={diagnosisError} hasSubmitted={diagnosisSubmitted} />
               </div>
 
               <aside className="right-column">
