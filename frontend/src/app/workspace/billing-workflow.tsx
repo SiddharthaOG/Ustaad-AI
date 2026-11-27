@@ -23,15 +23,14 @@ const money = (value: number | string) => Number(value).toLocaleString("en-IN", 
 const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 function toEditableItems(items: BillItem[]): EditableBillItem[] {
-  return items.filter((item) => !!item && typeof item === "object" && typeof item.name === "string").map((item) => ({
-    name: item.name,
-    qty: typeof item.qty === "string" ? item.qty : "1",
-    unit: typeof item.unit === "string" ? item.unit : "piece",
-    unit_price: typeof item.unit_price === "string" ? item.unit_price : null,
-    kind: item.kind === "labour" ? "labour" : "part",
-    needs_confirmation: item.needs_confirmation === true || item.unit_price === null || item.unit_price === undefined,
-    id: makeId(),
-  }));
+  return items.filter((item) => !!item && typeof item === "object" &&
+    typeof item.name === "string" && typeof item.qty === "string" && typeof item.unit === "string" &&
+    (item.kind === "part" || item.kind === "labour")).map((item) => ({
+      ...item,
+      unit_price: typeof item.unit_price === "string" ? item.unit_price : null,
+      needs_confirmation: item.needs_confirmation === true || item.unit_price === null || item.unit_price === undefined,
+      id: makeId(),
+    }));
 }
 
 function isBillConfirmResponse(value: unknown): value is BillConfirmResponse {
@@ -40,7 +39,8 @@ function isBillConfirmResponse(value: unknown): value is BillConfirmResponse {
   return Array.isArray(result.items) && typeof result.total_complete === "boolean" &&
     (result.subtotal === null || typeof result.subtotal === "string") &&
     (result.total === null || typeof result.total === "string") &&
-    (result.whatsapp_text === null || typeof result.whatsapp_text === "string");
+    (result.whatsapp_text === null || typeof result.whatsapp_text === "string") &&
+    (result.total_complete ? typeof result.total === "string" && typeof result.whatsapp_text === "string" : result.total === null && result.whatsapp_text === null);
 }
 
 function isRecentBill(value: unknown): value is RecentBill {
@@ -55,7 +55,7 @@ function isRecentBill(value: unknown): value is RecentBill {
     typeof item.demoMode === "boolean" && (item.confirmed === null || typeof item.confirmed === "object");
 }
 
-export function BillingWorkflow() {
+export function BillingWorkflow({ active }: { active: boolean }) {
   const recorder = useAudioRecorder();
   const liveText = useLiveTranscript();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -72,6 +72,7 @@ export function BillingWorkflow() {
   const [provider, setProvider] = useState("");
   const [latency, setLatency] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const extractSubmitting = useRef(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -80,7 +81,11 @@ export function BillingWorkflow() {
   const [recentBills, setRecentBills] = useState<RecentBill[]>([]);
 
   const audioUrl = recorder.audioUrl || uploadedUrl;
-  const recording = recorder.status === "recording";
+  const recorderStatus = recorder.status;
+  const stopLiveText = liveText.stop;
+  const stopBillingRecorder = recorder.stop;
+  const clearBillingRecorder = recorder.clear;
+  const recording = recorderStatus === "recording";
   const missingPrices = items.filter((item) => item.needs_confirmation || item.unit_price === null).length;
   const estimateComplete = items.length > 0 && missingPrices === 0;
   const estimate = useMemo(() => items.reduce((sum, item) => {
@@ -91,6 +96,13 @@ export function BillingWorkflow() {
   }, 0), [items]);
 
   useEffect(() => () => { if (uploadedUrl) URL.revokeObjectURL(uploadedUrl); }, [uploadedUrl]);
+
+  useEffect(() => {
+    if (active) return;
+    stopLiveText();
+    if (recorderStatus === "recording") void stopBillingRecorder();
+    else if (recorderStatus === "requesting") clearBillingRecorder();
+  }, [active, recorderStatus, stopBillingRecorder, clearBillingRecorder, stopLiveText]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +126,8 @@ export function BillingWorkflow() {
 
   const startRecording = () => {
     clearUploaded();
+    setItems([]); setUnsupportedMentions([]); setExtractionTranscript(""); setConfirmedBill(null); setNotice("");
+    setJobDescription("");
     setError("");
     void recorder.start();
     liveText.clear();
@@ -135,7 +149,10 @@ export function BillingWorkflow() {
   const handleUpload = async (file?: File) => {
     if (!file) return;
     liveText.stop();
+    liveText.clear();
+    setJobDescription("");
     recorder.clear();
+    setItems([]); setUnsupportedMentions([]); setExtractionTranscript(""); setConfirmedBill(null); setNotice("");
     const result = await validateDiagnosisWav(file);
     if (!result.valid) {
       setFileError(result.message);
@@ -154,8 +171,11 @@ export function BillingWorkflow() {
       setError("The extraction service returned an incomplete response. Please retry.");
       return;
     }
-    setItems(toEditableItems(response.items));
-    setUnsupportedMentions(Array.isArray(response.unsupported_mentions) ? response.unsupported_mentions.filter((entry) => typeof entry === "string") : []);
+    const editableItems = toEditableItems(response.items);
+    const omittedCount = response.items.length - editableItems.length;
+    setItems(editableItems);
+    const mentions = Array.isArray(response.unsupported_mentions) ? response.unsupported_mentions.filter((entry) => typeof entry === "string") : [];
+    setUnsupportedMentions(omittedCount ? [...mentions, `${omittedCount} extracted row(s) were omitted because required fields were missing. Add them manually after review.`] : mentions);
     setExtractionTranscript(typeof response.transcript === "string" ? response.transcript : "");
     setCustomer(typeof response.customer === "string" ? response.customer : customer);
     setProvider(response.provider || (isDemo ? "demo-fixture" : "unknown"));
@@ -163,26 +183,28 @@ export function BillingWorkflow() {
     setConfirmedBill(null);
     setDemoMode(isDemo);
     setError("");
-    setNotice(isDemo ? "Demo extraction loaded. Edit the items and confirm the prices to complete the sample bill." : "Items extracted. Review every line before confirming.");
+    setNotice(omittedCount ? `${omittedCount} incomplete row(s) were omitted. Complete the remaining lines and add omitted items manually.` : isDemo ? "Demo extraction loaded. Edit the items and confirm the prices to complete the sample bill." : "Items extracted. Review every line before confirming.");
   };
 
   const extractBill = async () => {
-    const audio = recorder.audioBlob
-      ? new File([recorder.audioBlob], "ustaad-bill-recording.wav", { type: "audio/wav" })
-      : uploadedFile;
-    if (!audio) {
-      setError("Record a voice note or upload a PCM WAV file before extracting bill items.");
-      return;
-    }
-    const validation = await validateDiagnosisWav(audio);
-    if (!validation.valid) {
-      setError(validation.message);
-      return;
-    }
+    if (extractSubmitting.current || loading) return;
+    extractSubmitting.current = true;
     setLoading(true);
     setError("");
     setNotice("");
     try {
+      const audio = recorder.audioBlob
+        ? new File([recorder.audioBlob], "ustaad-bill-recording.wav", { type: "audio/wav" })
+        : uploadedFile;
+      if (!audio) {
+        setError("Record a voice note or upload a PCM WAV file before extracting bill items.");
+        return;
+      }
+      const validation = await validateDiagnosisWav(audio);
+      if (!validation.valid) {
+        setError(validation.message);
+        return;
+      }
       const response = await ustaadApi.extractBill({
         audio: validation.file,
         lang: language === "hi" ? "hi" : "en",
@@ -192,6 +214,7 @@ export function BillingWorkflow() {
     } catch (reason) {
       setError(reason instanceof UstaadApiError ? reason.message : reason instanceof Error ? reason.message : "Bill extraction failed. Please try again.");
     } finally {
+      extractSubmitting.current = false;
       setLoading(false);
     }
   };
@@ -209,6 +232,7 @@ export function BillingWorkflow() {
       return next;
     }));
     setConfirmedBill(null);
+    setNotice(""); setError("");
   };
 
   const addItem = () => {
@@ -217,11 +241,13 @@ export function BillingWorkflow() {
       kind: "part", needs_confirmation: true,
     }]);
     setConfirmedBill(null);
+    setNotice(""); setError("");
   };
 
   const removeItem = (id: string) => {
     setItems((current) => current.filter((item) => item.id !== id));
     setConfirmedBill(null);
+    setNotice(""); setError("");
   };
 
   const confirmBill = async () => {
@@ -236,12 +262,14 @@ export function BillingWorkflow() {
       return;
     }
     setConfirming(true);
+    setConfirmedBill(null);
     setError("");
     setNotice("");
-    const requestItems = items.map(({ name, qty, unit, unit_price, kind }) => ({ name, qty, unit, unit_price, kind }));
+    const demoItems: BillItem[] = items.map(({ name, qty, unit, unit_price, kind, needs_confirmation }) => ({ name, qty, unit, unit_price, kind, needs_confirmation }));
+    const requestItems = demoItems.map(({ name, qty, unit, unit_price, kind }) => ({ name, qty, unit, unit_price, kind }));
     try {
       const response: unknown = demoMode
-        ? demoConfirmBill(customer.trim() || null, items)
+        ? demoConfirmBill(customer.trim() || null, demoItems)
         : await ustaadApi.confirmBill({
             customer: customer.trim() || null,
             items: requestItems,
@@ -314,7 +342,7 @@ export function BillingWorkflow() {
         <p className="panel-copy">Say the parts used and labour charged. Review the extracted lines before confirming.</p>
         <div className="billing-customer-inline">
           <label htmlFor="bill-customer">CUSTOMER NAME</label>
-          <input id="bill-customer" value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name (optional)" />
+          <input id="bill-customer" value={customer} disabled={loading || confirming} onChange={(event) => { setCustomer(event.target.value); setConfirmedBill(null); setNotice(""); }} placeholder="Customer name (optional)" />
         </div>
         <label className="billing-field-label" htmlFor="bill-job-notes">JOB NOTES / LIVE TRANSCRIPT</label>
         <textarea id="bill-job-notes" value={liveText.transcript || jobDescription} onChange={(event) => { setJobDescription(event.target.value); liveText.setTranscript(event.target.value); }} placeholder="Describe the work, parts used and labour charged…" rows={4} />
@@ -324,13 +352,13 @@ export function BillingWorkflow() {
           <span>{recording ? `Recording · 00:${String(recorder.seconds).padStart(2, "0")} / 00:15` : audioName || "Record or upload a voice note"}</span>
           <select aria-label="Bill language" value={language} onChange={(event) => { const next = event.target.value as "hi" | "en"; setLanguage(next); if (recording && liveTextEnabled) { liveText.stop(); liveText.start(next === "hi" ? "hi-IN" : "en-IN"); } }}><option value="hi">Hindi / Hinglish</option><option value="en">English</option></select>
         </div>
-        {recording && <div className="recording-signal is-live"><span className="recording-signal-dot" /><span className="recording-signal-label">Ustaad is listening</span><span className="recording-signal-hint">{recorder.inputLevel > 0.015 ? "Voice input detected" : "Speak to test your mic"}</span></div>}
+        {(recording || recorder.status === "requesting") && <div className={`recording-signal ${recording ? "is-live" : "is-requesting"}`} role="status" aria-live="polite"><span className="recording-signal-dot" /><span className="recording-signal-label">{recording ? "Ustaad is listening" : "Connecting to your microphone…"}</span>{recording && <span className="recording-signal-hint">{recorder.inputLevel > 0.015 ? "Voice input detected" : "Speak to test your mic"}</span>}</div>}
         {recorder.error && <p className="billing-error" role="alert">{recorder.error}</p>}
         {fileError && <p className="billing-error" role="alert">{fileError}</p>}
-        {audioUrl && <div className="audio-review"><strong>Review recording</strong><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported.</audio><div className="audio-review-actions"><button type="button" onClick={() => { clearRecording(); startRecording(); }}>Retake</button><button type="button" onClick={clearRecording}>Clear</button></div></div>}
+        {audioUrl && <div className="audio-review"><strong>Review recording</strong><audio controls preload="metadata" src={audioUrl}>Audio playback is not supported.</audio><div className="audio-review-actions"><button type="button" disabled={loading || confirming} onClick={() => { clearRecording(); startRecording(); }}>Retake</button><button type="button" disabled={loading || confirming} onClick={clearRecording}>Clear</button></div></div>}
         <div className="billing-upload-row">
-          <input ref={fileInput} type="file" accept=".wav,audio/wav" hidden onChange={(event) => void handleUpload(event.target.files?.[0])} />
-          <button type="button" className="upload-audio" onClick={() => fileInput.current?.click()}><span><strong>Upload WAV audio</strong><small>PCM16 · 16 kHz mono · Max 2 MB · 15 sec</small></span><b>Browse</b></button>
+          <input ref={fileInput} type="file" accept=".wav,audio/wav" hidden disabled={loading || confirming} onChange={(event) => void handleUpload(event.target.files?.[0])} />
+          <button type="button" className="upload-audio" disabled={loading || confirming} onClick={() => fileInput.current?.click()}><span><strong>Upload WAV audio</strong><small>PCM16 · 16 kHz mono · Max 2 MB · 15 sec</small></span><b>Browse</b></button>
           <button type="button" className="billing-demo-button" onClick={runDemoExtraction} disabled={loading || confirming}>Load demo extraction</button>
         </div>
         <button type="button" className="primary-button full-button" onClick={() => void extractBill()} disabled={loading || confirming || recording}>{loading ? "Extracting items…" : "Extract items from voice note"} <span>→</span></button>
@@ -338,8 +366,8 @@ export function BillingWorkflow() {
         {extractionTranscript && <div className="billing-extraction-transcript"><strong>Extraction transcript</strong><p>{extractionTranscript}</p>{provider && <small>{provider}{latency !== null ? ` · ${Math.round(latency)} ms` : ""}</small>}</div>}
       </section>
 
-      <section className="panel bill-editor">
-        <div className="bill-title-row"><div><span className="step-label">STEP 02 · REVIEW & CONFIRM</span><h2>Itemised bill</h2></div><span className="draft-tag">{confirmedBill?.total_complete ? "CONFIRMED" : "DRAFT"}</span></div>
+      <section className="panel bill-editor" aria-busy={loading || confirming}>
+        <div className="bill-title-row"><div><span className="step-label">STEP 02 · REVIEW & CONFIRM</span><h2>Itemised bill</h2></div><span className="draft-tag">{confirmedBill?.total_complete ? (demoMode ? "DEMO CONFIRMED" : "CONFIRMED") : "DRAFT"}</span></div>
         {items.length === 0 ? (
           <div className="billing-empty"><strong>No items yet</strong><p>Record a job description or load the demo extraction to populate the bill.</p></div>
         ) : (
@@ -347,37 +375,37 @@ export function BillingWorkflow() {
             <div className="billing-item-list">
               {items.map((item, index) => (
                 <div className="billing-item" key={item.id}>
-                  <div className="billing-item-heading"><strong>LINE {String(index + 1).padStart(2, "0")}</strong><button type="button" className="remove-item" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name || "line item"}`}>×</button></div>
-                  <label>Description<input value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} placeholder="Part or labour description" /></label>
+                  <div className="billing-item-heading"><strong>LINE {String(index + 1).padStart(2, "0")}</strong><button type="button" className="remove-item" disabled={loading || confirming} onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name || "line item"}`}>×</button></div>
+                  <label>Description<input disabled={loading || confirming} value={item.name} onChange={(event) => updateItem(item.id, { name: event.target.value })} placeholder="Part or labour description" /></label>
                   <div className="billing-item-grid">
-                    <label>Type<select value={item.kind} onChange={(event) => updateItem(item.id, { kind: event.target.value as BillItem["kind"] })}><option value="part">Part</option><option value="labour">Labour</option></select></label>
-                    <label>Quantity<input type="number" min="0.001" step="0.001" value={item.qty} onChange={(event) => updateItem(item.id, { qty: event.target.value, })} /></label>
-                    <label>Unit<input value={item.unit} onChange={(event) => updateItem(item.id, { unit: event.target.value })} placeholder="piece, metre, job" /></label>
-                    <label>Unit price (₹)<input type="number" min="0" step="0.01" value={item.unit_price ?? ""} placeholder="Confirm price" onChange={(event) => updateItem(item.id, { unit_price: event.target.value === "" ? null : event.target.value })} /></label>
+                    <label>Type<select disabled={loading || confirming} value={item.kind} onChange={(event) => updateItem(item.id, { kind: event.target.value as BillItem["kind"] })}><option value="part">Part</option><option value="labour">Labour</option></select></label>
+                    <label>Quantity<input disabled={loading || confirming} type="number" min="0.001" step="0.001" value={item.qty} onChange={(event) => updateItem(item.id, { qty: event.target.value, })} /></label>
+                    <label>Unit<input disabled={loading || confirming} value={item.unit} onChange={(event) => updateItem(item.id, { unit: event.target.value })} placeholder="piece, metre, job" /></label>
+                    <label>Unit price (₹)<input disabled={loading || confirming} type="number" min="0" step="0.01" value={item.unit_price ?? ""} placeholder="Confirm price" onChange={(event) => updateItem(item.id, { unit_price: event.target.value === "" ? null : event.target.value })} /></label>
                   </div>
                   {(item.needs_confirmation || item.unit_price === null) && <p className="billing-price-warning" role="status">Price needs confirmation. This line is excluded from the estimate and final total.</p>}
                 </div>
               ))}
             </div>
-            <button type="button" className="add-item" onClick={addItem}>＋ Add line item</button>
+            <button type="button" className="add-item" onClick={addItem} disabled={loading || confirming}>＋ Add line item</button>
           </>
         )}
         {unsupportedMentions.length > 0 && <div className="billing-unsupported"><strong>Not added to bill</strong><ul>{unsupportedMentions.map((mention) => <li key={mention}>{mention}</li>)}</ul></div>}
-        <div className="billing-totals">
+        <div className="billing-totals" aria-live="polite">
           <div><span>Provisional estimate</span><strong>{estimateComplete ? `₹${money(estimate)}` : "Incomplete"}</strong></div>
           <small>{missingPrices ? `${missingPrices} line(s) need price confirmation. ` : ""}Browser estimate only; backend confirmation is authoritative. No GST included.</small>
-          <div className="billing-confirmed-total"><span>Backend-confirmed total</span><strong>{confirmedBill?.total_complete && confirmedBill.total !== null ? `₹${money(confirmedBill.total)}` : "Not confirmed"}</strong></div>
+          <div className="billing-confirmed-total"><span>{demoMode ? "Demo-confirmed total" : "Backend-confirmed total"}</span><strong>{confirmedBill?.total_complete && confirmedBill.total !== null ? `₹${money(confirmedBill.total)}` : "Not confirmed"}</strong></div>
         </div>
         {error && <div className="billing-error" role="alert">{error}</div>}
         {notice && <div className="billing-notice" role="status">{notice}</div>}
         <div className="billing-action-row">
-          <button type="button" className="billing-secondary-button" onClick={saveDraft} disabled={items.length === 0}>Save draft</button>
+          <button type="button" className="billing-secondary-button" onClick={saveDraft} disabled={items.length === 0 || loading || confirming}>Save draft</button>
           <button type="button" className="primary-button" onClick={() => void confirmBill()} disabled={items.length === 0 || confirming || loading}>{confirming ? "Confirming…" : "Confirm totals"} <span>→</span></button>
         </div>
         {confirmedBill?.whatsapp_text && (
-          <a className="billing-whatsapp-link" href={`https://wa.me/?text=${encodeURIComponent(confirmedBill.whatsapp_text)}`} target="_blank" rel="noopener noreferrer">Open WhatsApp bill <span>↗</span></a>
+          <a className="billing-whatsapp-link" href={`https://wa.me/?text=${encodeURIComponent(confirmedBill.whatsapp_text)}`} target="_blank" rel="noopener noreferrer">{demoMode ? "Open demo WhatsApp preview" : "Open WhatsApp bill"} <span>↗</span></a>
         )}
-        <p className="no-gst">No GST included · Share only after the backend confirms every price.</p>
+        <p className="no-gst">{demoMode ? "Demo confirmation is simulated; do not treat this as a production bill." : "No GST included · Share only after the backend confirms every price."}</p>
       </section>
 
       <section className="panel billing-recent">
@@ -385,8 +413,8 @@ export function BillingWorkflow() {
         {recentBills.length === 0 ? <p className="billing-recent-empty">Saved drafts will appear here. They stay in this browser on this device.</p> : recentBills.map((bill) => (
           <div className="billing-recent-row" key={bill.id}>
             <div><strong>{bill.customer || "Unnamed customer"}</strong><small>{new Date(bill.savedAt).toLocaleString("en-IN")} · {bill.items.length} items{bill.demoMode ? " · Demo" : ""}</small></div>
-            <button type="button" onClick={() => loadDraft(bill)}>Open</button>
-            <button type="button" className="recent-delete" onClick={() => deleteDraft(bill.id)} aria-label="Delete saved draft">×</button>
+            <button type="button" onClick={() => loadDraft(bill)} disabled={loading || confirming}>Open</button>
+            <button type="button" className="recent-delete" disabled={loading || confirming} onClick={() => deleteDraft(bill.id)} aria-label="Delete saved draft">×</button>
           </div>
         ))}
       </section>

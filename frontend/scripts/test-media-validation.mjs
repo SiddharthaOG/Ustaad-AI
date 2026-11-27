@@ -59,6 +59,13 @@ assert.equal((await validateDiagnosisWav(audioFile(new Uint8Array(MAX_DIAGNOSIS_
 
 assert.equal((await validateDiagnosisImage(jpeg())).valid, true);
 assert.equal((await validateDiagnosisImage(jpeg(MAX_DIAGNOSIS_IMAGE_BYTES, "boundary.jpeg"))).valid, true);
+globalThis.createImageBitmap = async () => ({ close() {} });
+assert.equal((await validateDiagnosisImage(jpeg())).valid, true);
+globalThis.createImageBitmap = async () => { throw new Error("decode failed"); };
+const undecodable = await validateDiagnosisImage(jpeg());
+assert.equal(undecodable.valid, false);
+assert.ok(!undecodable.valid && undecodable.message.includes("could not be decoded"));
+delete globalThis.createImageBitmap;
 assert.equal((await validateDiagnosisImage(jpeg(7, "unit.png", "image/png"))).valid, false);
 assert.equal((await validateDiagnosisImage(new File([Uint8Array.from([1, 2, 3])], "fake.jpg", { type: "image/jpeg" }))).valid, false);
 assert.equal((await validateDiagnosisImage(jpeg(1_600_000, "large.jpg"))).valid, false);

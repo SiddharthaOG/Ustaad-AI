@@ -100,3 +100,26 @@
 .billing-live-opt-in{display:flex;align-items:center;gap:7px;margin:8px 0;color:#718077;font-size:8px;line-height:1.4}
 .billing-live-opt-in input{accent-color:#2e684f}
 .billing-live-opt-in span{color:#a0aaa2}
+
+/* Accessibility and workflow state resilience */
+[hidden]{display:none!important}
+:where(button,a,input,select,textarea):focus-visible{outline:3px solid rgba(46,104,79,.45);outline-offset:2px}
+button:disabled{cursor:not-allowed}
+.billing-live-opt-in{align-items:flex-start}
+.billing-live-opt-in input{margin-top:1px;flex:0 0 auto}
+@media(max-width:390px){
+  .billing-item-grid{grid-template-columns:1fr 1fr;gap:6px}
+  .billing-item-grid input,.billing-item-grid select{font-size:10px;padding:8px 5px}
+  .billing-action-row .primary-button,.billing-secondary-button{width:100%;justify-content:center}
+  .billing-recent-row small{white-space:normal}
+  .billing-recent-row button{padding:7px}
+  .demo-controls select{max-width:145px}
+}
+@media(prefers-reduced-motion:reduce){
+  .recording-signal-dot,.pulse,.recording-pulse,.waveform i{animation:none!important;transition:none!important}
+  html:focus-within{scroll-behavior:auto}
+}
+
+.status-dot.status-pending{background:#d2a24e;box-shadow:none}
+
+@media(max-width:560px){.topbar-right{gap:7px;font-size:8px}.top-divider,.topbar-right .icon-button{display:none}.topbar-right>span{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}

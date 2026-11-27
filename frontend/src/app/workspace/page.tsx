@@ -44,12 +44,28 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
+  const diagnosisAbort = useRef<AbortController | null>(null);
+  const diagnosisSubmitting = useRef(false);
+  const diagnosisSubmissionId = useRef(0);
+  const demoRunId = useRef(0);
 
   const audioUrl = recordedAudioUrl || uploadedAudioUrl;
   useEffect(() => () => { if (uploadedAudioUrl) URL.revokeObjectURL(uploadedAudioUrl); }, [uploadedAudioUrl]);
   useEffect(() => () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); }, [photoPreviewUrl]);
+  useEffect(() => () => { diagnosisAbort.current?.abort(); }, []);
+
+  const cancelDiagnosisRequest = () => {
+    diagnosisSubmissionId.current += 1;
+    diagnosisSubmitting.current = false;
+    demoRunId.current += 1;
+    const controller = diagnosisAbort.current;
+    diagnosisAbort.current = null;
+    controller?.abort();
+    setDiagnosisLoading(false);
+  };
 
   const beginRecording = () => {
+    cancelDiagnosisRequest();
     setUploadedAudioUrl("");
     setUploadedAudioFile(null);
     setAudioName("");
@@ -63,11 +79,13 @@ export default function Home() {
   };
   const endRecording = () => { void stopRecording(); liveTranscript.stop(); };
   const clearAudio = () => {
+    cancelDiagnosisRequest();
     liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (audioInput.current) audioInput.current.value = "";
   };
   const handleAudioFile = async (file?: File) => {
     if (!file) return;
+    cancelDiagnosisRequest();
     liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     const validation = await validateDiagnosisWav(file);
     if (!validation.valid) { setAudioName(""); setAudioValidationError(validation.message); if (audioInput.current) audioInput.current.value = ""; return; }
@@ -76,6 +94,9 @@ export default function Home() {
 
 
   const analyseDiagnosis = async () => {
+    if (diagnosisSubmitting.current || diagnosisLoading) return;
+    diagnosisSubmitting.current = true;
+    const submissionId = ++diagnosisSubmissionId.current;
     const audio = audioBlob
       ? new File([audioBlob], "ustaad-recording.wav", { type: "audio/wav" })
       : uploadedAudioFile;
@@ -84,16 +105,30 @@ export default function Home() {
       setDiagnosisError("Record a voice note or upload an audio clip before analysing.");
       setDiagnosis(null);
       setDiagnosisSubmitted(false);
+      diagnosisSubmitting.current = false;
       return;
     }
-    const audioValidation = await validateDiagnosisWav(audio);
+    let audioValidation: Awaited<ReturnType<typeof validateDiagnosisWav>>;
+    try {
+      audioValidation = await validateDiagnosisWav(audio);
+    } catch {
+      if (diagnosisSubmissionId.current === submissionId) {
+        diagnosisSubmitting.current = false;
+        setDiagnosisError("The selected audio file could not be read. Please choose it again.");
+      }
+      return;
+    }
+    if (diagnosisSubmissionId.current !== submissionId) return;
     if (!audioValidation.valid) {
       setDiagnosisError(audioValidation.message);
       setDiagnosis(null);
       setDiagnosisSubmitted(false);
+      diagnosisSubmitting.current = false;
       return;
     }
 
+    const controller = new AbortController();
+    diagnosisAbort.current = controller;
     setDiagnosisLoading(true);
     setDiagnosisError("");
     setDiagnosis(null);
@@ -102,36 +137,68 @@ export default function Home() {
       const lang: SupportedLanguage = transcriptLanguage === "hi-IN" ? "hi" : "en";
       const response = await ustaadApi.diagnose(
         { audio: audioValidation.file, image: photoFile, lang },
-        { timeoutMs: 90_000 },
+        { signal: controller.signal, timeoutMs: 90_000 },
       );
       const normalized = normalizeDiagnosisResponse(response);
       setDiagnosis(normalized.result);
       setDiagnosisWarnings(normalized.warnings);
     } catch (error) {
+      if (controller.signal.aborted) return;
       setDiagnosisError(
         error instanceof UstaadApiError
           ? error.message
           : error instanceof Error ? error.message : "Something went wrong while analysing the recording. Please try again.",
       );
     } finally {
-      setDiagnosisLoading(false);
+      if (diagnosisAbort.current === controller) {
+        diagnosisAbort.current = null;
+        diagnosisSubmitting.current = false;
+        setDiagnosisLoading(false);
+      }
     }
   };
 
   const clearDiagnosis = () => {
+    cancelDiagnosisRequest();
     clearAudio();
     setPhotoFile(null); setPhotoName(""); setPhotoValidationError(""); setPhotoPreviewUrl("");
     setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (photoInput.current) photoInput.current.value = "";
   };
 
+  const changeMode = (nextMode: Mode) => {
+    if (nextMode === mode) return;
+    if (mode === "diagnose") {
+      cancelDiagnosisRequest();
+      liveTranscript.stop();
+      if (recorderStatus === "recording") void stopRecording();
+      else if (recorderStatus === "requesting") clearRecording();
+    }
+    setMode(nextMode);
+  };
+
+  const handleModeKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, current: Mode) => {
+    let next: Mode | null = null;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = current === "diagnose" ? "billing" : "diagnose";
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = current === "diagnose" ? "billing" : "diagnose";
+    if (event.key === "Home") next = "diagnose";
+    if (event.key === "End") next = "billing";
+    if (!next) return;
+    event.preventDefault();
+    changeMode(next);
+    document.getElementById(next === "diagnose" ? "diagnose-tab" : "billing-tab")?.focus();
+  };
+
   const runDiagnosisDemo = async () => {
+    cancelDiagnosisRequest();
+    const runId = ++demoRunId.current;
     const scenario = diagnosisDemoScenarios[demoScenario];
     setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisSubmitted(true); setDiagnosisError("");
     if (scenario.error) {
       if (demoScenario === "timeout") {
         setDiagnosisLoading(true);
         await new Promise((resolve) => setTimeout(resolve, 1800));
+        if (demoRunId.current !== runId) return;
         setDiagnosisLoading(false);
       }
       setDiagnosisError(scenario.error);
@@ -151,8 +218,8 @@ export default function Home() {
           <span><strong>ustaad<span className="brand-ai">.ai</span></strong><small>THE WORKSHOP COPILOT</small></span>
         </Link>
         <div className="side-label">WORKSPACE</div>
-        <button className={`side-link ${mode === "diagnose" ? "active" : ""}`} onClick={() => setMode("diagnose")}><Icon>⌕</Icon> Diagnose a fault <span className="side-arrow">↗</span></button>
-        <button className={`side-link ${mode === "billing" ? "active" : ""}`} onClick={() => setMode("billing")}><Icon>▤</Icon> Create a bill <span className="side-arrow">↗</span></button>
+        <button className={`side-link ${mode === "diagnose" ? "active" : ""}`} onClick={() => changeMode("diagnose")}><Icon>⌕</Icon> Diagnose a fault <span className="side-arrow">↗</span></button>
+        <button className={`side-link ${mode === "billing" ? "active" : ""}`} onClick={() => changeMode("billing")}><Icon>▤</Icon> Create a bill <span className="side-arrow">↗</span></button>
         <div className="sidebar-bottom">
           <div className="help-card"><span className="help-icon">✳</span><strong>Need a hand?</strong><p>Your workshop assistant is ready when you are.</p><button onClick={() => setNotice("Help centre is coming soon.")}>Get help <span>↗</span></button></div>
           <div className="profile"><div className="avatar">RK</div><div><strong>Rajesh Kumar</strong><small>Workshop account</small></div><span className="more">···</span></div>
@@ -162,7 +229,7 @@ export default function Home() {
       <section className="main-area">
         <header className="topbar">
           <div className="breadcrumb">Workspace <span>/</span> <strong>{mode === "diagnose" ? "Fault diagnosis" : "New bill"}</strong></div>
-          <div className="topbar-right"><span className="status-dot" /> All systems operational <span className="top-divider" /> <button className="icon-button" aria-label="Notifications">♧</button></div>
+          <div className="topbar-right"><span className="status-dot status-pending" /> Frontend ready · API integration pending <span className="top-divider" /> <button className="icon-button" aria-label="Notifications">♧</button></div>
         </header>
 
         <div className="content">
@@ -172,19 +239,19 @@ export default function Home() {
           </div>
 
           <div className="mode-switch" role="tablist" aria-label="Choose a workflow">
-            <button role="tab" aria-selected={mode === "diagnose"} className={mode === "diagnose" ? "selected" : ""} onClick={() => setMode("diagnose")}><span>⌕</span> Diagnose</button>
-            <button role="tab" aria-selected={mode === "billing"} className={mode === "billing" ? "selected" : ""} onClick={() => setMode("billing")}><span>▤</span> Make a bill</button>
+            <button id="diagnose-tab" role="tab" aria-controls="diagnosis-panel" aria-selected={mode === "diagnose"} className={mode === "diagnose" ? "selected" : ""} onClick={() => changeMode("diagnose")} onKeyDown={(event) => handleModeKeyDown(event, "diagnose")} tabIndex={mode === "diagnose" ? 0 : -1}><span>⌕</span> Diagnose</button>
+            <button id="billing-tab" role="tab" aria-controls="billing-panel" aria-selected={mode === "billing"} className={mode === "billing" ? "selected" : ""} onClick={() => changeMode("billing")} onKeyDown={(event) => handleModeKeyDown(event, "billing")} tabIndex={mode === "billing" ? 0 : -1}><span>▤</span> Make a bill</button>
           </div>
 
           {mode === "diagnose" ? (
-            <div className="workspace-grid">
+            <div className="workspace-grid" id="diagnosis-panel" role="tabpanel" aria-labelledby="diagnose-tab">
               <div className="primary-column">
                 <section className="panel capture-panel">
                   <div className="panel-heading"><div><span className="step-label">STEP 01 · TELL US THE PROBLEM</span><h2>Talk to Ustaad</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
                   <p className="panel-copy">Explain the symptoms in your own words. Hindi, English or Hinglish — whatever works.</p>
                   {(recording || recorderStatus === "requesting") && <div className={`recording-signal ${recording ? "is-live" : "is-requesting"}`} role="status" aria-live="polite"><span className="recording-signal-dot" /><span className="recording-signal-label">{recording ? "Ustaad is listening" : "Connecting to your microphone…"}</span>{recording && <span className="input-meter" aria-label={inputLevel > 0.015 ? "Microphone input detected" : "Waiting for microphone input"}>{Array.from({ length: 12 }, (_, index) => <i key={index} className={inputLevel > (index + 1) / 16 ? "active" : ""} />)}</span>}{recording && <span className="recording-signal-hint">{inputLevel > 0.015 ? "Voice input detected" : "Speak to test your mic"}</span>}</div>}
                   <div className={`record-zone ${recording ? "is-recording" : ""}`}>
-                    <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? endRecording : beginRecording} aria-label={recording ? "Stop recording" : "Start recording"}><span>{recording ? "■" : "🎙"}</span></button>
+                    <button className={`record-button ${recording ? "recording" : ""}`} onClick={recording ? endRecording : beginRecording} disabled={recorderStatus === "requesting" || recorderStatus === "processing"} aria-label={recording ? "Stop recording" : "Start recording"}><span>{recording ? "■" : "🎙"}</span></button>
                     <strong>{recording ? "Listening… tap to stop" : audioBlob || audioName ? "Voice note captured" : "Tap to speak"}</strong>
                     <small>{recording ? `00:${String(seconds).padStart(2, "0")} / 00:15` : audioName || "Up to 15 seconds · Speak naturally"}</small>
                     {recording && <div className="waveform">{Array.from({ length: 31 }, (_, i) => <i key={i} style={{ height: `${10 + ((i * 17) % 28)}px` }} />)}</div>}
@@ -196,8 +263,8 @@ export default function Home() {
                   <div className="or-divider"><span /> OR <span /></div>
                   <button className="upload-audio" onClick={() => audioInput.current?.click()}><Icon>↑</Icon><span><strong>Upload an audio clip</strong><small>PCM WAV · 16 kHz mono · Max 2 MB</small></span><b>Browse files</b></button>
                   <input ref={audioInput} type="file" accept=".wav,audio/wav" hidden onChange={(e) => void handleAudioFile(e.target.files?.[0])} />
-                  <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>JPEG only · Max 1.5 MB</small>{photoName && <small className="file-picked">✓ {photoName}</small>}{photoValidationError && <small className="file-picked" role="alert">{photoValidationError}</small>}</div><button type="button" onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/jpeg,.jpg,.jpeg" hidden onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; void (async () => { const validation = await validateDiagnosisImage(file); if (!validation.valid) { setPhotoValidationError(validation.message); setPhotoFile(null); setPhotoName(""); setPhotoPreviewUrl(""); if (photoInput.current) photoInput.current.value = ""; return; } setPhotoFile(validation.file); setPhotoName(validation.file.name); setPhotoValidationError(""); setPhotoPreviewUrl(URL.createObjectURL(validation.file)); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false); })(); }} /></div>{photoPreviewUrl && <div className="photo-preview"><Image src={photoPreviewUrl} alt="Selected equipment for diagnosis" width={184} height={144} unoptimized /><button type="button" onClick={() => { setPhotoFile(null); setPhotoName(""); setPhotoPreviewUrl(""); setPhotoValidationError(""); if (photoInput.current) photoInput.current.value = ""; }}>Remove photo</button></div>}
-                  <button className="primary-button full-button" onClick={() => void analyseDiagnosis()} disabled={diagnosisLoading || recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing"}>{diagnosisLoading ? "Analysing…" : "Analyse the problem"} <span>→</span></button><div className="diagnosis-actions"><button type="button" onClick={clearDiagnosis}>Clear diagnosis</button><div className="demo-controls"><label htmlFor="diagnosis-demo">Demo scenario</label><select id="diagnosis-demo" value={demoScenario} onChange={(event) => setDemoScenario(event.target.value as DiagnosisDemoScenario)}>{Object.entries(diagnosisDemoScenarios).map(([key, scenario]) => <option key={key} value={key}>{scenario.label}</option>)}</select><button type="button" onClick={() => void runDiagnosisDemo()} disabled={diagnosisLoading}>Run demo</button></div></div>
+                  <div className="photo-row"><div className="photo-icon">▧</div><div><strong>Add a photo <em>OPTIONAL</em></strong><small>JPEG only · Max 1.5 MB</small>{photoName && <small className="file-picked">✓ {photoName}</small>}{photoValidationError && <small className="file-picked" role="alert">{photoValidationError}</small>}</div><button type="button" onClick={() => photoInput.current?.click()}>{photoName ? "Change photo" : "+ Add photo"}</button><input ref={photoInput} type="file" accept="image/jpeg,.jpg,.jpeg" hidden onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; cancelDiagnosisRequest(); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false); void (async () => { const validation = await validateDiagnosisImage(file); if (!validation.valid) { setPhotoValidationError(validation.message); setPhotoFile(null); setPhotoName(""); setPhotoPreviewUrl(""); if (photoInput.current) photoInput.current.value = ""; return; } setPhotoFile(validation.file); setPhotoName(validation.file.name); setPhotoValidationError(""); setPhotoPreviewUrl(URL.createObjectURL(validation.file)); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false); })(); }} /></div>{photoPreviewUrl && <div className="photo-preview"><Image src={photoPreviewUrl} alt="Selected equipment for diagnosis" width={184} height={144} unoptimized /><button type="button" onClick={() => { cancelDiagnosisRequest(); setPhotoFile(null); setPhotoName(""); setPhotoPreviewUrl(""); setPhotoValidationError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false); if (photoInput.current) photoInput.current.value = ""; }}>Remove photo</button></div>}
+                  <button className="primary-button full-button" onClick={() => void analyseDiagnosis()} disabled={diagnosisLoading || recorderStatus === "recording" || recorderStatus === "requesting" || recorderStatus === "processing"}>{diagnosisLoading ? "Analysing…" : "Analyse the problem"} <span>→</span></button><div className="diagnosis-actions"><button type="button" onClick={clearDiagnosis}>Clear diagnosis</button><div className="demo-controls"><label htmlFor="diagnosis-demo">Demo scenario</label><select id="diagnosis-demo" value={demoScenario} onChange={(event) => { cancelDiagnosisRequest(); setDemoScenario(event.target.value as DiagnosisDemoScenario); }}>{Object.entries(diagnosisDemoScenarios).map(([key, scenario]) => <option key={key} value={key}>{scenario.label}</option>)}</select><button type="button" onClick={() => void runDiagnosisDemo()} disabled={diagnosisLoading}>Run demo</button></div></div>
                   <div className="privacy-note"><Icon>♢</Icon> Ustaad does not store recordings. Live text preview may use your browser speech provider.</div>
                 </section>
 
@@ -211,8 +278,9 @@ export default function Home() {
               </aside>
             </div>
           ) : (
-            <BillingWorkflow />
+            null
           )}
+          <div hidden={mode !== "billing"} id="billing-panel" role="tabpanel" aria-labelledby="billing-tab"><BillingWorkflow active={mode === "billing"} /></div>
           {notice && <div className="toast" role="status"><span>ⓘ</span>{notice}<button onClick={() => setNotice("")}>×</button></div>}
           <footer className="footer"><span>© 2026 Ustaad AI</span><span>Made for the hands that make things work <b>✳</b></span><span>Version 0.1 · Prototype</span></footer>
         </div>

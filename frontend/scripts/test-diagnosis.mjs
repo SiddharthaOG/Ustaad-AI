@@ -36,6 +36,14 @@ const capped = normalizeDiagnosisResponse({
 });
 assert.equal(capped.result.steps.length, 4);
 
+const awaitingConfirmation = normalizeDiagnosisResponse({
+  grounded: true, kb_id: "KB-1", needs_confirmation: true, confirm_question: "What model is this?",
+  steps: ["Perform the repair"], probable_causes: [], transcript: "Test",
+});
+assert.equal(awaitingConfirmation.result.grounded, true);
+assert.equal(awaitingConfirmation.result.steps.length, 0);
+assert.ok(awaitingConfirmation.warnings.some((warning) => warning.includes("clarification")));
+
 const incomplete = normalizeDiagnosisResponse({ grounded: false, needs_confirmation: true, steps: "bad" });
 assert.equal(incomplete.result.transcript, "");
 assert.equal(incomplete.result.grounded, false);

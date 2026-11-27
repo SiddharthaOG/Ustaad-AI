@@ -29,7 +29,7 @@ export function normalizeDiagnosisResponse(input: unknown): { result: DiagnosisR
     error_meaning: nullableText(raw.error_meaning),
     probable_causes: stringList(raw.probable_causes),
     safety_alert: text(raw.safety_alert),
-    steps: grounded ? stringList(raw.steps).slice(0, 4) : [],
+    steps: grounded && raw.needs_confirmation !== true ? stringList(raw.steps).slice(0, 4) : [],
     spoken_summary: text(raw.spoken_summary),
     source: nullableText(raw.source),
     photo_note: nullableText(raw.photo_note),
@@ -37,5 +37,6 @@ export function normalizeDiagnosisResponse(input: unknown): { result: DiagnosisR
     latency_ms: typeof raw.latency_ms === "number" && Number.isFinite(raw.latency_ms) ? Math.max(0, raw.latency_ms) : 0,
   };
   if (!grounded && Array.isArray(raw.steps) && raw.steps.length) warnings.push("Repair steps were withheld because the response was not grounded in a verified reference.");
+  if (grounded && raw.needs_confirmation === true && Array.isArray(raw.steps) && raw.steps.length) warnings.push("Repair steps were withheld until the requested clarification is answered.");
   return { result, warnings };
 }
