@@ -11,20 +11,24 @@ type Props = {
   speechLoading?: boolean;
   speechError?: string;
   speechAudioUrl?: string;
+  isDemo?: boolean;
+  safetyFirst?: boolean;
+  foodSafety?: boolean;
 };
 
 export function DiagnosisResult({
   result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak,
   speechLoading = false, speechError = "", speechAudioUrl = "",
+  isDemo = false, safetyFirst = false, foodSafety = false,
 }: Props) {
   return (
-    <section className="panel result-panel" aria-labelledby="diagnosis-heading" aria-live="polite">
+    <section className={`panel result-panel ${isDemo ? "is-demo-result" : ""}`} aria-labelledby="diagnosis-heading" aria-live="polite">
       <div className="result-top">
         <div>
           <span className="step-label">STEP 02 · USTAAD’S FINDINGS</span>
           <h2 id="diagnosis-heading">Diagnosis overview</h2>
         </div>
-        {result && <span className={result.grounded ? "grounded-tag" : "unverified-tag"}>{result.grounded ? "VERIFIED SOURCE" : "NEEDS VERIFICATION"}</span>}
+        {result && <span className={result.grounded ? "grounded-tag" : "unverified-tag"}>{result.grounded ? (isDemo ? "SAMPLE REFERENCE" : "VERIFIED SOURCE") : "NEEDS VERIFICATION"}</span>}
         {loading && <span className="loading-tag">ANALYSING</span>}
       </div>
 
@@ -51,12 +55,16 @@ export function DiagnosisResult({
           <div className="fault-title">
             <div className="fault-icon">⌁</div>
             <div>
-              <strong>{result.detected_code ? `Fault code: ${result.detected_code}` : result.error_meaning || "No specific fault code identified"}</strong>
-              <small>{result.error_meaning || (result.grounded ? "Matched against verified service information." : "The available information is not enough to verify a specific fault.")}</small>
+              <strong>{result.detected_code ? "Extracted equipment code: " + result.detected_code : (safetyFirst ? "No verified diagnosis displayed" : result.error_meaning || "No specific fault code identified")}</strong>
+              <small>{safetyFirst ? "A qualified technician must assess the equipment." : result.error_meaning || (result.grounded ? "Matched against verified service information." : "The available information is not enough to verify a specific fault.")}</small>
             </div>
             <span className={result.grounded ? "confidence verified-confidence" : "confidence"}>{result.grounded ? "Grounded" : "Unverified"}</span>
           </div>
 
+          {safetyFirst && <div className="scenario-safety-callout" role="alert"><strong>Safety-first mode · no DIY repair instructions</strong><p>This scenario deliberately withholds repair steps. Do not touch exposed wiring, bypass safety devices or open electrical/refrigerant circuits. Stop work and arrange assessment by a qualified technician.</p></div>}
+          {foodSafety && <div className="scenario-safety-callout" role="status"><strong>Protect the stored food</strong><p>Move perishable stock to verified working refrigeration or approved cold storage, minimise door opening and follow applicable local food-safety guidance. Do not rely on smell or appearance to decide whether food is safe.</p></div>}
+          {foodSafety && !result.grounded && <div className="source-note" role="status">No refrigerator-specific grounded result is available from this response. Ustaad will not reuse air-conditioner guidance to invent a refrigerator fault meaning or repair procedure. Escalate to a qualified refrigeration technician.</div>}
+          {result.detected_code && <div className="source-note code-extraction-note"><strong>Equipment code extracted: {result.detected_code}</strong><p>The code came from the diagnosis response. Its meaning is actionable only when matched to the exact equipment make and model.</p></div>}
           <div className="diagnosis-transcript">
             <strong>What Ustaad heard</strong>
             <p>{result.transcript || "No transcript was returned. Please verify the recording or provide the symptoms again."}</p>
@@ -81,7 +89,7 @@ export function DiagnosisResult({
             <div className="photo-observation"><strong>Photo observation</strong><p>{result.photo_note}</p></div>
           )}
 
-          {result.probable_causes.length > 0 && (
+          {!safetyFirst && !(foodSafety && !result.grounded) && result.probable_causes.length > 0 && (
             <div className="causes-block">
               <div className="steps-heading">Possible causes <span>{result.grounded ? "FROM VERIFIED REFERENCE" : "UNCONFIRMED"}</span></div>
               {!result.grounded && <p className="unverified-note">These are possibilities, not confirmed faults. Verify the equipment model and symptoms before repair.</p>}
@@ -89,7 +97,7 @@ export function DiagnosisResult({
             </div>
           )}
 
-          {result.grounded && result.steps.length > 0 && (
+          {!safetyFirst && result.grounded && result.steps.length > 0 && (
             <>
               <div className="steps-heading">Suggested checks <span>UP TO 4 STEPS</span></div>
               <ol className="repair-steps">
@@ -107,7 +115,7 @@ export function DiagnosisResult({
             <div className="source-note"><span>ⓘ</span> Reference: {result.source || "Verified knowledge base"}{result.kb_id ? ` · ${result.kb_id}` : ""}</div>
           )}
 
-          {result.spoken_summary && (
+          {!safetyFirst && !(foodSafety && !result.grounded) && result.spoken_summary && (
             <div className="spoken-summary">
               <div><strong>Ustaad’s summary</strong><p>{result.spoken_summary}</p></div>
               {onSpeak && (
@@ -127,7 +135,7 @@ export function DiagnosisResult({
               )}
             </div>
           )}
-          <div className="diagnosis-meta">Processed by {result.provider} · {Math.max(0, Math.round(result.latency_ms))} ms</div>
+          <div className="diagnosis-meta">{isDemo ? "Sample scenario · illustrative reference · not a live diagnosis" : "Processed by " + result.provider + " · " + Math.max(0, Math.round(result.latency_ms)) + " ms"}</div>
         </>
       )}
     </section>
