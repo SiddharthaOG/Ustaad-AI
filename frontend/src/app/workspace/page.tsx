@@ -10,8 +10,6 @@ import { useLiveTranscript } from "@/lib/audio/use-live-transcript";
 import { ustaadApi, UstaadApiError } from "@/lib/api/client";
 import type { DiagnosisResponse, SupportedLanguage } from "@/lib/api/contracts";
 import { validateDiagnosisImage, validateDiagnosisWav } from "@/lib/media-validation";
-import { normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
-import { diagnosisDemoScenarios, type DiagnosisDemoScenario } from "@/lib/api/diagnosis-scenarios";
 import { buildDiagnosisNarration, normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
 import { DiagnosisResult } from "./diagnosis-result";
 import { BillingWorkflow } from "./billing-workflow";
@@ -91,7 +89,6 @@ export default function Home() {
   useEffect(() => () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); }, [photoPreviewUrl]);
   useEffect(() => () => { if (speechAudioUrl) URL.revokeObjectURL(speechAudioUrl); }, [speechAudioUrl]);
   useEffect(() => () => { diagnosisAbort.current?.abort(); }, []);
-  useEffect(() => () => { demoRunId.current += 1; diagnosisAbort.current?.abort(); }, []);
 
   const cancelDiagnosisRequest = () => {
     diagnosisSubmissionId.current += 1;
@@ -209,7 +206,6 @@ export default function Home() {
   };
 
   const speakDiagnosis = async () => {
-    if (!diagnosis?.spoken_summary || speechSubmitting.current) return;
     if (!diagnosis || speechSubmitting.current) return;
     const requestId = ++speechRequestId.current;
     const narration = buildDiagnosisNarration(diagnosis);
@@ -219,14 +215,8 @@ export default function Home() {
     setSpeechLoading(true);
     setSpeechError("");
     try {
-      const audio = await ustaadApi.speak({
-        text: diagnosis.spoken_summary,
-        lang: diagnosisIsDemo ? "en" : transcriptLanguage === "hi-IN" ? "hinglish" : "en",
-      }, { timeoutMs: 60_000 });
-      setSpeechAudioUrl(URL.createObjectURL(audio));
-    } catch (error) {
       const audio = await ustaadApi.speak(
-        { text: narration, lang: transcriptLanguage === "hi-IN" ? "hinglish" : "en" },
+        { text: narration, lang: diagnosisIsDemo ? "en" : transcriptLanguage === "hi-IN" ? "hinglish" : "en" },
         { timeoutMs: 60_000 },
       );
       if (!audio.size || !audio.type.startsWith("audio/")) {
@@ -242,8 +232,6 @@ export default function Home() {
           : error instanceof Error ? error.message : "Speech generation failed. Please try again.",
       );
     } finally {
-      speechSubmitting.current = false;
-      setSpeechLoading(false);
       if (requestId === speechRequestId.current) {
         speechSubmitting.current = false;
         setSpeechLoading(false);
@@ -288,27 +276,8 @@ export default function Home() {
     setRoleplayRunId((current) => current + 1);
     setBillingContext({ customer: scenario.customer, jobDescription: scenario.job });
     setMode("billing");
-  const runDiagnosisDemo = async () => {
-    cancelDiagnosisRequest();
-    const runId = ++demoRunId.current;
-    const scenario = diagnosisDemoScenarios[demoScenario];
-    invalidateSpeech();
-    setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisSubmitted(true); setDiagnosisError("");
-    if (scenario.error) {
-      if (demoScenario === "timeout") {
-        setDiagnosisLoading(true);
-        await new Promise((resolve) => setTimeout(resolve, 1800));
-        if (demoRunId.current !== runId) return;
-        setDiagnosisLoading(false);
-      }
-      setDiagnosisError(scenario.error);
-      return;
-    }
-    if (scenario.result) {
-      const normalized = normalizeDiagnosisResponse(scenario.result);
-      setDiagnosis(normalized.result); setDiagnosisWarnings(normalized.warnings);
-    }
   };
+
 
   return (
     <main className="app-shell">
@@ -376,20 +345,8 @@ export default function Home() {
                   <div className="privacy-note"><span className="icon" aria-hidden="true">i</span> Recordings are not stored by Ustaad.</div>
                 </section>
 
-                <DiagnosisResult result={diagnosis} loading={diagnosisLoading} error={diagnosisError} hasSubmitted={diagnosisSubmitted} warnings={diagnosisWarnings} onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined} onSpeak={selectedScenario==="amit"?undefined:()=>void speakDiagnosis()} speechLoading={speechLoading} speechError={speechError} speechAudioUrl={speechAudioUrl} isDemo={diagnosisIsDemo} safetyFirst={selectedScenario==="amit"} foodSafety={selectedScenario==="imran"} />
+                <DiagnosisResult result={diagnosis} loading={diagnosisLoading} error={diagnosisError} hasSubmitted={diagnosisSubmitted} warnings={diagnosisWarnings} onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined} onSpeak={() => void speakDiagnosis()} speechLoading={speechLoading} speechError={speechError} speechAudioUrl={speechAudioUrl} isDemo={diagnosisIsDemo} safetyFirst={selectedScenario==="amit"} foodSafety={selectedScenario==="imran"} />
                 {diagnosis && workshopTourStep === 8 && <div className="roleplay-result-actions"><span>Live diagnosis response - review before acting</span><button type="button" onClick={() => { setWorkshopTourStep(-1); continueToBilling(); }}>Continue {scenario.customer}'s job to billing <span></span></button></div>}
-                <DiagnosisResult
-                  result={diagnosis}
-                  loading={diagnosisLoading}
-                  error={diagnosisError}
-                  hasSubmitted={diagnosisSubmitted}
-                  warnings={diagnosisWarnings}
-                  onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined}
-                  onSpeak={() => void speakDiagnosis()}
-                  speechLoading={speechLoading}
-                  speechError={speechError}
-                  speechAudioUrl={speechAudioUrl}
-                />
               </div>
 
 

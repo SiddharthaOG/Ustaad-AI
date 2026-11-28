@@ -16,12 +16,10 @@ type Props = {
   foodSafety?: boolean;
 };
 
-export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak, speechLoading = false, speechError = "", speechAudioUrl = "", isDemo = false, safetyFirst = false, foodSafety = false }: Props) {
-};
-
 export function DiagnosisResult({
   result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak,
   speechLoading = false, speechError = "", speechAudioUrl = "",
+  isDemo = false, safetyFirst = false, foodSafety = false,
 }: Props) {
   return (
     <section className={`panel result-panel ${isDemo ? "is-demo-result" : ""}`} aria-labelledby="diagnosis-heading" aria-live="polite">
@@ -120,9 +118,6 @@ export function DiagnosisResult({
           {!safetyFirst && !(foodSafety && !result.grounded) && result.spoken_summary && (
             <div className="spoken-summary">
               <div><strong>Ustaad’s summary</strong><p>{result.spoken_summary}</p></div>
-              {onSpeak && <button type="button" onClick={onSpeak} disabled={speechLoading}>{speechLoading ? "Preparing audio..." : speechAudioUrl ? "Generate again" : "Listen"} <span>Play</span></button>}
-              {speechError && <p className="speech-error" role="alert">{speechError}</p>}
-              {speechAudioUrl && <audio className="speech-player" controls autoPlay preload="auto" src={speechAudioUrl}>Audio playback is not supported by this browser.</audio>}
               {onSpeak && (
                 <button type="button" onClick={onSpeak} disabled={speechLoading} aria-label="Generate spoken diagnosis">
                   {speechLoading ? "Preparing audio..." : speechAudioUrl ? "Generate again" : "Listen"}
