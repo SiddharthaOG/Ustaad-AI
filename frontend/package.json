@@ -12,7 +12,8 @@
     "test:diagnosis": "node scripts/test-diagnosis.mjs",
     "test:billing": "node scripts/test-billing-demo.mjs",
     "test:api": "node scripts/test-api-client.mjs",
-    "test": "npm run test:audio && npm run test:media && npm run test:diagnosis && npm run test:billing && npm run test:api"
+    "test:tts": "node scripts/test-tts-ui.mjs",
+    "test": "npm run test:audio && npm run test:media && npm run test:diagnosis && npm run test:billing && npm run test:api && npm run test:tts"
   },
   "dependencies": {
     "next": "16.4.6",

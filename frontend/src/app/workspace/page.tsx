@@ -10,7 +10,7 @@ import { ustaadApi, UstaadApiError } from "@/lib/api/client";
 import type { DiagnosisResponse, SupportedLanguage } from "@/lib/api/contracts";
 import { validateDiagnosisImage, validateDiagnosisWav } from "@/lib/media-validation";
 import { diagnosisDemoScenarios, type DiagnosisDemoScenario } from "@/lib/api/diagnosis-scenarios";
-import { normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
+import { buildDiagnosisNarration, normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
 import { DiagnosisResult } from "./diagnosis-result";
 import { BillingWorkflow } from "./billing-workflow";
 
@@ -41,17 +41,31 @@ export default function Home() {
   const [diagnosisLoading, setDiagnosisLoading] = useState(false);
   const [diagnosisError, setDiagnosisError] = useState("");
   const [diagnosisSubmitted, setDiagnosisSubmitted] = useState(false);
+  const [speechLoading, setSpeechLoading] = useState(false);
+  const [speechError, setSpeechError] = useState("");
+  const [speechAudioUrl, setSpeechAudioUrl] = useState("");
   const [notice, setNotice] = useState("");
   const photoInput = useRef<HTMLInputElement>(null);
   const audioInput = useRef<HTMLInputElement>(null);
   const diagnosisAbort = useRef<AbortController | null>(null);
   const diagnosisSubmitting = useRef(false);
+  const speechSubmitting = useRef(false);
+  const speechRequestId = useRef(0);
   const diagnosisSubmissionId = useRef(0);
   const demoRunId = useRef(0);
+
+  const invalidateSpeech = () => {
+    speechRequestId.current += 1;
+    speechSubmitting.current = false;
+    setSpeechLoading(false);
+    setSpeechAudioUrl("");
+    setSpeechError("");
+  };
 
   const audioUrl = recordedAudioUrl || uploadedAudioUrl;
   useEffect(() => () => { if (uploadedAudioUrl) URL.revokeObjectURL(uploadedAudioUrl); }, [uploadedAudioUrl]);
   useEffect(() => () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); }, [photoPreviewUrl]);
+  useEffect(() => () => { if (speechAudioUrl) URL.revokeObjectURL(speechAudioUrl); }, [speechAudioUrl]);
   useEffect(() => () => { demoRunId.current += 1; diagnosisAbort.current?.abort(); }, []);
 
   const cancelDiagnosisRequest = () => {
@@ -70,6 +84,7 @@ export default function Home() {
     setUploadedAudioFile(null);
     setAudioName("");
     setAudioValidationError("");
+    invalidateSpeech();
     setDiagnosis(null);
     setDiagnosisWarnings([]);
     setDiagnosisError("");
@@ -80,13 +95,13 @@ export default function Home() {
   const endRecording = () => { void stopRecording(); liveTranscript.stop(); };
   const clearAudio = () => {
     cancelDiagnosisRequest();
-    liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); invalidateSpeech(); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (audioInput.current) audioInput.current.value = "";
   };
   const handleAudioFile = async (file?: File) => {
     if (!file) return;
     cancelDiagnosisRequest();
-    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); invalidateSpeech(); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     const validation = await validateDiagnosisWav(file);
     if (!validation.valid) { setAudioName(""); setAudioValidationError(validation.message); if (audioInput.current) audioInput.current.value = ""; return; }
     setUploadedAudioUrl(URL.createObjectURL(validation.file)); setUploadedAudioFile(validation.file); setAudioName(validation.file.name); setAudioValidationError("");
@@ -103,7 +118,7 @@ export default function Home() {
 
     if (!audio) {
       setDiagnosisError("Record a voice note or upload an audio clip before analysing.");
-      setDiagnosis(null);
+      invalidateSpeech(); setDiagnosis(null);
       setDiagnosisSubmitted(false);
       diagnosisSubmitting.current = false;
       return;
@@ -121,7 +136,7 @@ export default function Home() {
     if (diagnosisSubmissionId.current !== submissionId) return;
     if (!audioValidation.valid) {
       setDiagnosisError(audioValidation.message);
-      setDiagnosis(null);
+      invalidateSpeech(); setDiagnosis(null);
       setDiagnosisSubmitted(false);
       diagnosisSubmitting.current = false;
       return;
@@ -131,6 +146,7 @@ export default function Home() {
     diagnosisAbort.current = controller;
     setDiagnosisLoading(true);
     setDiagnosisError("");
+    invalidateSpeech();
     setDiagnosis(null);
     setDiagnosisSubmitted(true);
     try {
@@ -158,10 +174,45 @@ export default function Home() {
     }
   };
 
+  const speakDiagnosis = async () => {
+    if (!diagnosis || speechSubmitting.current) return;
+    const requestId = ++speechRequestId.current;
+    const narration = buildDiagnosisNarration(diagnosis);
+    if (!narration.trim()) return;
+
+    speechSubmitting.current = true;
+    setSpeechLoading(true);
+    setSpeechError("");
+    try {
+      const audio = await ustaadApi.speak(
+        { text: narration, lang: transcriptLanguage === "hi-IN" ? "hinglish" : "en" },
+        { timeoutMs: 60_000 },
+      );
+      if (!audio.size || !audio.type.startsWith("audio/")) {
+        throw new Error("Ustaad returned an invalid audio response. Please try again.");
+      }
+      if (requestId !== speechRequestId.current) return;
+      setSpeechAudioUrl(URL.createObjectURL(audio));
+    } catch (error) {
+      if (requestId !== speechRequestId.current) return;
+      setSpeechError(
+        error instanceof UstaadApiError
+          ? error.message
+          : error instanceof Error ? error.message : "Speech generation failed. Please try again.",
+      );
+    } finally {
+      if (requestId === speechRequestId.current) {
+        speechSubmitting.current = false;
+        setSpeechLoading(false);
+      }
+    }
+  };
+
   const clearDiagnosis = () => {
     cancelDiagnosisRequest();
     clearAudio();
     setPhotoFile(null); setPhotoName(""); setPhotoValidationError(""); setPhotoPreviewUrl("");
+    invalidateSpeech();
     setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (photoInput.current) photoInput.current.value = "";
   };
@@ -193,6 +244,7 @@ export default function Home() {
     cancelDiagnosisRequest();
     const runId = ++demoRunId.current;
     const scenario = diagnosisDemoScenarios[demoScenario];
+    invalidateSpeech();
     setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisSubmitted(true); setDiagnosisError("");
     if (scenario.error) {
       if (demoScenario === "timeout") {
@@ -268,7 +320,18 @@ export default function Home() {
                   <div className="privacy-note"><Icon>♢</Icon> Ustaad does not store recordings. Live text preview may use your browser speech provider.</div>
                 </section>
 
-                <DiagnosisResult result={diagnosis} loading={diagnosisLoading} error={diagnosisError} hasSubmitted={diagnosisSubmitted} warnings={diagnosisWarnings} onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined} />
+                <DiagnosisResult
+                  result={diagnosis}
+                  loading={diagnosisLoading}
+                  error={diagnosisError}
+                  hasSubmitted={diagnosisSubmitted}
+                  warnings={diagnosisWarnings}
+                  onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined}
+                  onSpeak={() => void speakDiagnosis()}
+                  speechLoading={speechLoading}
+                  speechError={speechError}
+                  speechAudioUrl={speechAudioUrl}
+                />
               </div>
 
               <aside className="right-column">

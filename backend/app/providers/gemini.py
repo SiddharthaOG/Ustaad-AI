@@ -232,10 +232,16 @@ class GeminiProvider:
         language_name = {"hi": "Hindi", "hinglish": "Hindi-English Hinglish", "en": "Indian English"}.get(
             language, "Hindi-English Hinglish"
         )
+        # Gemini TTS can read every content item aloud. Keep style guidance and the
+        # delimited payload in one prompt so a separate instruction item cannot leak
+        # into the generated speech.
         prompt = (
-            f"Speak the following text exactly in natural conversational {language_name}. "
-            "Use clear Indian pronunciation, a calm helpful technician tone, and a moderate pace. "
-            "Do not add greetings, explanations, or any words not present in the text."
+            f"Generate speech in natural conversational {language_name}, with clear Indian "
+            "pronunciation, a calm helpful technician tone, and a moderate pace. "
+            "Speak ONLY the exact text between <SPEAK> and </SPEAK>. "
+            "Do not speak these instructions or the delimiter tags. Do not add a greeting, "
+            "introduction, explanation, or closing.\n\n"
+            f"<SPEAK>\n{text}\n</SPEAK>"
         )
         config = {
             "response_modalities": ["AUDIO"],
@@ -249,7 +255,7 @@ class GeminiProvider:
         }
         response = await self._generate_response(
             gemini_tts_model(),
-            [prompt, text],
+            [prompt],
             config,
         )
         audio_data = None
