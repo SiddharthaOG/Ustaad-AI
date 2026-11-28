@@ -135,52 +135,44 @@ Ustaad-AI/
 
 ---
 
-## Run locally
+## Run with Docker Compose
+
+The recommended quick start runs the Next.js frontend and FastAPI backend together.
 
 ### Prerequisites
 
-- Node.js and npm
-- Python 3.11+
-- A Gemini API key for live backend diagnosis and TTS requests
+- Docker Desktop (Windows/macOS) or Docker Engine with the Docker Compose plugin
+- A Gemini API key for live diagnosis and TTS (the demo UI can start without one)
 
-### 1. Clone the repository
+### 1. Configure the backend
 
 ```bash
-git clone https://github.com/SiddharthaOG/Ustaad-AI.git
-cd Ustaad-AI
+cp backend/.env.example backend/.env
 ```
 
-### 2. Start the frontend
+Add your `GEMINI_API_KEY` to `backend/.env`. Keep this file private; it is excluded from the Docker build context and Git.
 
-```powershell
-cd frontend
-npm install
-npm run dev
+### 2. Build and start both services
+
+```bash
+docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open the application at [http://localhost:3000](http://localhost:3000). The backend is available at [http://localhost:8000](http://localhost:8000), with interactive API docs at [http://localhost:8000/docs](http://localhost:8000/docs).
 
-### 3. Configure and start the backend
+Compose waits for the backend health check before starting the frontend. The browser-facing API URL defaults to `http://localhost:8000`; if you change the host or port, set `NEXT_PUBLIC_API_BASE_URL` before rebuilding the frontend image.
 
-In a second terminal, from the repository root:
+Useful commands:
 
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r backend\requirements.txt
-Copy-Item backend\.env.example backend\.env
+```bash
+docker compose ps
+docker compose logs -f backend frontend
+docker compose down
 ```
 
-Add your Gemini API key to `backend/.env`, then start the service:
+### Run without Docker
 
-```powershell
-uvicorn app.main:app --app-dir backend --env-file backend/.env --reload --host 127.0.0.1 --port 8000
-```
-
-The API health endpoint is [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health), and interactive API documentation is available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
-
-Use the frontend's documented environment configuration to point it at your local backend. Never commit real API keys or `.env` files.
+If you prefer a native development environment, see [backend setup](./backend/README.md) and install the frontend dependencies with `npm ci` inside `frontend/`. Set `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` in `frontend/.env.local` when needed.
 
 ---
 
