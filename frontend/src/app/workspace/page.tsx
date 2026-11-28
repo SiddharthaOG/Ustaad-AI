@@ -10,7 +10,7 @@ import { ustaadApi, UstaadApiError } from "@/lib/api/client";
 import type { DiagnosisResponse, SupportedLanguage } from "@/lib/api/contracts";
 import { validateDiagnosisImage, validateDiagnosisWav } from "@/lib/media-validation";
 import { diagnosisDemoScenarios, type DiagnosisDemoScenario } from "@/lib/api/diagnosis-scenarios";
-import { normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
+import { buildDiagnosisNarration, normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
 import { DiagnosisResult } from "./diagnosis-result";
 import { BillingWorkflow } from "./billing-workflow";
 
@@ -167,14 +167,16 @@ export default function Home() {
   };
 
   const speakDiagnosis = async () => {
-    if (!diagnosis?.spoken_summary || speechSubmitting.current) return;
+    if (!diagnosis || speechSubmitting.current) return;
+    const narration = buildDiagnosisNarration(diagnosis);
+    if (!narration.trim()) return;
 
     speechSubmitting.current = true;
     setSpeechLoading(true);
     setSpeechError("");
     try {
       const audio = await ustaadApi.speak(
-        { text: diagnosis.spoken_summary, lang: transcriptLanguage === "hi-IN" ? "hinglish" : "en" },
+        { text: narration, lang: transcriptLanguage === "hi-IN" ? "hinglish" : "en" },
         { timeoutMs: 60_000 },
       );
       if (!audio.size || !audio.type.startsWith("audio/")) {

@@ -6,7 +6,9 @@ const result = await readFile(new URL("../src/app/workspace/diagnosis-result.tsx
 
 assert.match(page, /const speakDiagnosis = async \(\) =>/);
 assert.match(page, /ustaadApi\.speak\(/);
-assert.match(page, /text: diagnosis\.spoken_summary/);
+assert.match(page, /const narration = buildDiagnosisNarration\(diagnosis\)/);
+assert.match(page, /text: narration/);
+assert.doesNotMatch(page, /text: diagnosis\.spoken_summary/);
 assert.match(page, /onSpeak=\{\(\) => void speakDiagnosis\(\)\}/);
 assert.match(page, /speechAudioUrl\]\);/);
 assert.match(page, /speechSubmitting\.current/);
