@@ -325,3 +325,40 @@ body{background:var(--deck-paper);color:var(--deck-ink)}
 .signup-note b,.signup-note small{display:block}.signup-note b{font-size:11px}.signup-note small{font-size:10px;line-height:1.6;color:#77818a;margin-top:4px}
 .signup-card .button{margin-top:5px}.signup-back{display:block;font-size:10px;color:#78818a;margin-top:17px}
 .signup-page>footer{text-align:center;padding:20px;color:#929aa1;font-family:var(--font-geist-mono),monospace;font-size:8px;letter-spacing:.4px}
+
+/* Prepared workshop roleplay invitation */
+.roleplay-invite-section{padding:clamp(68px,9vw,112px) 0;background:#f5f2e9;color:#1d2229;overflow:hidden}
+.roleplay-invite-inner{width:min(1120px,calc(100% - 48px));margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,.9fr);gap:clamp(35px,7vw,90px);align-items:center}
+.roleplay-invite-copy h2{margin:23px 0 17px;font-size:clamp(42px,5.5vw,68px);line-height:.98;letter-spacing:-2.8px}
+.roleplay-invite-copy h2 em{font-style:normal;color:#a06d1b}
+.roleplay-invite-copy>p{max-width:500px;color:#69717a;font-size:14px;line-height:1.85}
+.roleplay-invite-points{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}
+.roleplay-invite-points span{padding:8px 10px;border:1px solid #ded8c9;border-radius:6px;color:#5e6871;font-family:var(--font-geist-mono),monospace;font-size:8px;letter-spacing:.3px}
+.roleplay-invite-copy>.button{display:inline-flex;margin-top:4px}
+.roleplay-invite-copy>small{display:block;margin-top:12px;color:#8a9299;font-size:9px}
+.roleplay-invite-visual{position:relative;min-height:365px;padding:28px;border-radius:18px;background:#202830;color:#fffefa;box-shadow:0 25px 65px rgba(29,34,41,.16);overflow:hidden;isolation:isolate}
+.roleplay-blueprint-grid{position:absolute;inset:0;z-index:-1;opacity:.23;background-image:linear-gradient(rgba(245,163,19,.15) 1px,transparent 1px),linear-gradient(90deg,rgba(245,163,19,.15) 1px,transparent 1px);background-size:28px 28px}
+.roleplay-invite-visual:after{content:"";position:absolute;z-index:-1;width:260px;height:260px;right:-80px;bottom:-115px;border:1px solid rgba(245,163,19,.28);border-radius:50%;box-shadow:0 0 0 28px rgba(245,163,19,.035),0 0 0 58px rgba(245,163,19,.025)}
+.roleplay-visual-label{display:flex;justify-content:space-between;color:#c3c9c8;font-family:var(--font-geist-mono),monospace;font-size:8px;letter-spacing:1.2px}
+.roleplay-visual-label span{color:#f5a313}
+.roleplay-customer-card{display:flex;align-items:center;gap:12px;margin:50px 0 14px;padding:16px;border:1px solid #424b53;border-radius:10px;background:rgba(255,254,250,.06);backdrop-filter:blur(6px)}
+.roleplay-customer-avatar{width:46px;height:46px;display:grid;place-items:center;border-radius:13px;background:#f5a313;color:#202830;font-weight:850;font-size:15px}
+.roleplay-customer-card>div:nth-child(2){flex:1}.roleplay-customer-card strong,.roleplay-customer-card small{display:block}.roleplay-customer-card strong{font-size:13px}.roleplay-customer-card small{margin-top:4px;color:#aeb7bc;font-size:9px}
+.roleplay-status-dot{width:8px;height:8px;border-radius:50%;background:#5bc58a;box-shadow:0 0 0 5px rgba(91,197,138,.12)}
+.roleplay-speech-card{padding:17px 18px;border-radius:10px;background:#fffefa;color:#252d34}
+.roleplay-speech-card small{font-family:var(--font-geist-mono),monospace;color:#9a7026;font-size:8px;letter-spacing:1px}
+.roleplay-speech-card p{margin-top:9px;font-size:13px;line-height:1.65}
+.roleplay-visual-footer{display:flex;align-items:center;gap:10px;margin-top:26px;color:#c5cbd0;font-family:var(--font-geist-mono),monospace;font-size:8px;letter-spacing:1px}
+.roleplay-visual-footer i{width:3px;height:10px;border-radius:3px;background:#f5a313;opacity:.85}
+.roleplay-visual-footer i:nth-of-type(2){height:17px}.roleplay-visual-footer i:nth-of-type(3){height:23px}.roleplay-visual-footer i:nth-of-type(4){height:13px}.roleplay-visual-footer i:nth-of-type(5){height:19px}
+.roleplay-visual-footer b{margin-left:auto;color:#f5a313;font-size:17px}
+@media(max-width:800px){.roleplay-invite-inner{grid-template-columns:1fr;gap:32px}.roleplay-invite-visual{min-height:330px}}
+@media(max-width:520px){.roleplay-invite-inner{width:calc(100% - 34px)}.roleplay-invite-visual{min-height:315px;padding:20px}.roleplay-customer-card{margin-top:38px}.roleplay-invite-points{gap:6px}.roleplay-invite-points span{font-size:7px}}
+@media(prefers-reduced-motion:reduce){.roleplay-invite-visual *{animation:none!important;transition:none!important}}
+
+.roleplay-visual-footer i{transform-origin:center;animation:roleplayWave .72s ease-in-out infinite alternate}
+.roleplay-visual-footer i:nth-of-type(2){animation-delay:.12s}.roleplay-visual-footer i:nth-of-type(3){animation-delay:.24s}.roleplay-visual-footer i:nth-of-type(4){animation-delay:.36s}.roleplay-visual-footer i:nth-of-type(5){animation-delay:.48s}
+@keyframes roleplayWave{to{transform:scaleY(.45);opacity:.45}}
+.waveform i{transform-origin:center;animation:recordingWave .72s ease-in-out infinite alternate}
+.waveform i:nth-child(3n){animation-delay:.14s}.waveform i:nth-child(3n + 1){animation-delay:.28s}
+@keyframes recordingWave{to{transform:scaleY(.38);opacity:.55}}

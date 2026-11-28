@@ -158,18 +158,38 @@ export default function Home() {
         <div className="workflow-footnote"><span className="green-pulse" /> Start with a voice note. Add a photo only when it helps.</div>
       </div></section>
 
+      <section className="roleplay-invite-section">
+        <div className="roleplay-invite-inner" data-reveal>
+          <div className="roleplay-invite-copy">
+            <div className="section-kicker"><span>03</span> YOUR TURN AT THE WORKSHOP <i /></div>
+            <h2>Want to see it<br /><em>in action?</em></h2>
+            <p>Choose one of three workshop stories. Step into each person's shoes, record the problem, review a grounded diagnosis, and follow the customer handoff through a clearly labelled sample bill.</p>
+            <div className="roleplay-invite-points"><span>01 · Meet the customer</span><span>02 · Diagnose safely</span><span>03 · Review the bill</span></div>
+            <Link className="button button-amber" href="/workspace?roleplay=workshop">Start the prepared roleplay <span>→</span></Link>
+            <small>Guided demo · Sample customer and billing data clearly marked</small>
+          </div>
+          <div className="roleplay-invite-visual" aria-label="Illustration of a mechanic's workshop roleplay">
+            <div className="roleplay-blueprint-grid" />
+            <div className="roleplay-visual-label">TODAY'S CUSTOMER <span>DEMO 01</span></div>
+            <div className="roleplay-customer-card"><div className="roleplay-customer-avatar">RK</div><div><strong>Ramesh Kumar</strong><small>AC service visit · Customer</small></div><span className="roleplay-status-dot" /></div>
+            <div className="roleplay-speech-card"><small>WHAT HE SAYS</small><p>“The AC starts, but the outdoor fan isn't running. There's a burning smell.”</p></div>
+            <div className="roleplay-visual-footer"><span>LISTEN</span><i /><i /><i /><i /><i /><span>CHECK</span><b>→</b><span>BILL</span></div>
+          </div>
+        </div>
+      </section>
+
       <section className="two-flows-section section-pad"><div className="section-container">
-        <div className="section-kicker" data-reveal><span>03</span> TWO THINGS, DONE BETTER <i /></div>
+        <div className="section-kicker" data-reveal><span>04</span> TWO THINGS, DONE BETTER <i /></div>
         <div className="section-heading-row" data-reveal><h2>Help with the fix.<br /><em>Help with the bill.</em></h2><p>Ustaad keeps the focus on the two moments where a little support can make the working day easier.</p></div>
         <div className="flows-grid">
           <article className="flow-feature flow-diagnose" data-reveal><div className="flow-feature-top"><span>01 / FIND THE FAULT</span><span className="flow-feature-icon">⌁</span></div><h3>Let's figure it out.<br /><em>One check at a time.</em></h3><p>Describe the symptom, show the component and work through grounded checks with safety up front.</p><ul><li><span>✓</span> Talk it through, add a photo if useful</li><li><span>✓</span> Clear checks based on verified information</li><li><span>✓</span> Safety warning before repair steps</li></ul><div className="diagnose-mini"><div className="mini-top"><span>WHAT WE'VE FOUND</span><span className="mini-status">NEEDS YOUR CHECK</span></div><b>Possible capacitor issue</b><div className="mini-warning"><strong>!</strong> Isolate power before inspection.</div><div className="mini-step"><i>01</i> Check the capacitor rating</div><div className="mini-step"><i>02</i> Inspect for visible damage</div></div></article>
           <article className="flow-feature flow-bill" data-reveal><div className="flow-feature-top"><span>02 / MAKE THE BILL</span><span className="flow-feature-icon">₹</span></div><h3>Get the work<br /><em>down on paper.</em></h3><p>Say what you used and what the work cost. Review the items before sharing with your customer.</p><ul><li><span>✓</span> Speak parts and labour</li><li><span>✓</span> Edit every line item</li><li><span>✓</span> Share when you're ready</li></ul><div className="bill-mini"><div className="mini-top"><span>YOUR WORK SUMMARY</span><span className="mini-status">DRAFT</span></div><div className="bill-mini-line"><span>Capacitor 35µF</span><b>₹450</b></div><div className="bill-mini-line"><span>Inspection & fitting</span><b>₹350</b></div><div className="bill-mini-total"><span>TOTAL DUE</span><b>₹800</b></div><div className="bill-mini-share">CHECK IT. THEN SHARE IT.</div></div></article>
         </div>
-        <p className="prototype-disclaimer">This is a preview of the experience. Diagnosis and billing features are being connected to the live service.</p>
+        <p className="prototype-disclaimer">The prepared roleplay uses clearly labelled sample data. Live diagnosis and TTS use the connected service; billing demo confirmation is simulated until the billing backend is integrated.</p>
       </div></section>
 
       <section className="trust-section section-pad" id="trust"><div className="section-container">
-        <div className="section-kicker section-kicker-light" data-reveal><span>04</span> BUILT TO BE CAREFUL <i /></div>
+        <div className="section-kicker section-kicker-light" data-reveal><span>05</span> BUILT TO BE CAREFUL <i /></div>
         <div className="section-heading-row section-heading-light" data-reveal><h2>Helpful, not<br /><em>overconfident.</em></h2><p>Machines, safety and money matter. Ustaad should be clear about what it knows—and just as clear when you need to check something.</p></div>
         <div className="principles-grid">
           <article className="principle-card" data-reveal><div className="principle-top"><span className="number-disc">01</span><span>VERIFIED INFORMATION</span></div><h3>No made-up answers</h3><p>When a fault isn't covered by verified information, Ustaad should say so instead of guessing.</p></article>
@@ -180,7 +200,7 @@ export default function Home() {
       </div></section>
 
       <section className="closing-section"><div className="closing-texture" /><div className="closing-inner" data-reveal>
-        <div className="section-kicker section-kicker-light"><span>05</span> READY WHEN YOU ARE <i /></div>
+        <div className="section-kicker section-kicker-light"><span>06</span> READY WHEN YOU ARE <i /></div>
         <h2>Chalo, kaam<br />shuru karein?</h2><p>Tell Ustaad what's happening. We'll take it one step at a time.</p>
         <div className="hero-actions"><Link className="button button-amber" href="/workspace">Open Ustaad <span>↗</span></Link><button className="button button-ghost" onClick={() => { setGuideStep(0); setGuideOpen(true); }}>Show me around</button></div>
         <div className="closing-signoff">Bolo. Dikhao. Samajho. Theek karo. <span>✳</span></div>
