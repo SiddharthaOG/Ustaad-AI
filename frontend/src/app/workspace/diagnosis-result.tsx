@@ -8,9 +8,15 @@ type Props = {
   warnings?: string[];
   onRetry?: () => void;
   onSpeak?: () => void;
+  speechLoading?: boolean;
+  speechError?: string;
+  speechAudioUrl?: string;
 };
 
-export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak }: Props) {
+export function DiagnosisResult({
+  result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak,
+  speechLoading = false, speechError = "", speechAudioUrl = "",
+}: Props) {
   return (
     <section className="panel result-panel" aria-labelledby="diagnosis-heading" aria-live="polite">
       <div className="result-top">
@@ -104,7 +110,21 @@ export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings
           {result.spoken_summary && (
             <div className="spoken-summary">
               <div><strong>Ustaad’s summary</strong><p>{result.spoken_summary}</p></div>
-              {onSpeak && <button type="button" onClick={onSpeak}>Listen <span>▶</span></button>}
+              {onSpeak && (
+                <button type="button" onClick={onSpeak} disabled={speechLoading} aria-label="Generate spoken diagnosis">
+                  {speechLoading ? "Preparing audio..." : speechAudioUrl ? "Generate again" : "Listen"}
+                  <span aria-hidden="true">{speechLoading ? "..." : "Play"}</span>
+                </button>
+              )}
+              {speechError && <p className="speech-error" role="alert">{speechError}</p>}
+              {speechAudioUrl && (
+                <div className="speech-playback" role="group" aria-label="Spoken diagnosis playback">
+                  <span>Audio ready. Press play to listen</span>
+                  <audio className="speech-player" controls preload="metadata" src={speechAudioUrl}>
+                    Audio playback is not supported by this browser.
+                  </audio>
+                </div>
+              )}
             </div>
           )}
           <div className="diagnosis-meta">Processed by {result.provider} · {Math.max(0, Math.round(result.latency_ms))} ms</div>
