@@ -50,8 +50,17 @@ export default function Home() {
   const diagnosisAbort = useRef<AbortController | null>(null);
   const diagnosisSubmitting = useRef(false);
   const speechSubmitting = useRef(false);
+  const speechRequestId = useRef(0);
   const diagnosisSubmissionId = useRef(0);
   const demoRunId = useRef(0);
+
+  const invalidateSpeech = () => {
+    speechRequestId.current += 1;
+    speechSubmitting.current = false;
+    setSpeechLoading(false);
+    setSpeechAudioUrl("");
+    setSpeechError("");
+  };
 
   const audioUrl = recordedAudioUrl || uploadedAudioUrl;
   useEffect(() => () => { if (uploadedAudioUrl) URL.revokeObjectURL(uploadedAudioUrl); }, [uploadedAudioUrl]);
@@ -75,8 +84,7 @@ export default function Home() {
     setUploadedAudioFile(null);
     setAudioName("");
     setAudioValidationError("");
-    setSpeechAudioUrl("");
-    setSpeechError("");
+    invalidateSpeech();
     setDiagnosis(null);
     setDiagnosisWarnings([]);
     setDiagnosisError("");
@@ -87,13 +95,13 @@ export default function Home() {
   const endRecording = () => { void stopRecording(); liveTranscript.stop(); };
   const clearAudio = () => {
     cancelDiagnosisRequest();
-    liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); invalidateSpeech(); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (audioInput.current) audioInput.current.value = "";
   };
   const handleAudioFile = async (file?: File) => {
     if (!file) return;
     cancelDiagnosisRequest();
-    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); invalidateSpeech(); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     const validation = await validateDiagnosisWav(file);
     if (!validation.valid) { setAudioName(""); setAudioValidationError(validation.message); if (audioInput.current) audioInput.current.value = ""; return; }
     setUploadedAudioUrl(URL.createObjectURL(validation.file)); setUploadedAudioFile(validation.file); setAudioName(validation.file.name); setAudioValidationError("");
@@ -110,7 +118,7 @@ export default function Home() {
 
     if (!audio) {
       setDiagnosisError("Record a voice note or upload an audio clip before analysing.");
-      setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null);
+      invalidateSpeech(); setDiagnosis(null);
       setDiagnosisSubmitted(false);
       diagnosisSubmitting.current = false;
       return;
@@ -128,7 +136,7 @@ export default function Home() {
     if (diagnosisSubmissionId.current !== submissionId) return;
     if (!audioValidation.valid) {
       setDiagnosisError(audioValidation.message);
-      setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null);
+      invalidateSpeech(); setDiagnosis(null);
       setDiagnosisSubmitted(false);
       diagnosisSubmitting.current = false;
       return;
@@ -138,7 +146,7 @@ export default function Home() {
     diagnosisAbort.current = controller;
     setDiagnosisLoading(true);
     setDiagnosisError("");
-    setSpeechAudioUrl(""); setSpeechError("");
+    invalidateSpeech();
     setDiagnosis(null);
     setDiagnosisSubmitted(true);
     try {
@@ -168,6 +176,7 @@ export default function Home() {
 
   const speakDiagnosis = async () => {
     if (!diagnosis || speechSubmitting.current) return;
+    const requestId = ++speechRequestId.current;
     const narration = buildDiagnosisNarration(diagnosis);
     if (!narration.trim()) return;
 
@@ -182,16 +191,20 @@ export default function Home() {
       if (!audio.size || !audio.type.startsWith("audio/")) {
         throw new Error("Ustaad returned an invalid audio response. Please try again.");
       }
+      if (requestId !== speechRequestId.current) return;
       setSpeechAudioUrl(URL.createObjectURL(audio));
     } catch (error) {
+      if (requestId !== speechRequestId.current) return;
       setSpeechError(
         error instanceof UstaadApiError
           ? error.message
           : error instanceof Error ? error.message : "Speech generation failed. Please try again.",
       );
     } finally {
-      speechSubmitting.current = false;
-      setSpeechLoading(false);
+      if (requestId === speechRequestId.current) {
+        speechSubmitting.current = false;
+        setSpeechLoading(false);
+      }
     }
   };
 
@@ -199,7 +212,7 @@ export default function Home() {
     cancelDiagnosisRequest();
     clearAudio();
     setPhotoFile(null); setPhotoName(""); setPhotoValidationError(""); setPhotoPreviewUrl("");
-    setSpeechAudioUrl(""); setSpeechError("");
+    invalidateSpeech();
     setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (photoInput.current) photoInput.current.value = "";
   };
@@ -231,7 +244,7 @@ export default function Home() {
     cancelDiagnosisRequest();
     const runId = ++demoRunId.current;
     const scenario = diagnosisDemoScenarios[demoScenario];
-    setSpeechAudioUrl(""); setSpeechError("");
+    invalidateSpeech();
     setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisSubmitted(true); setDiagnosisError("");
     if (scenario.error) {
       if (demoScenario === "timeout") {
