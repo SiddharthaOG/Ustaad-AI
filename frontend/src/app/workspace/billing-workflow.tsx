@@ -6,7 +6,7 @@ import { useLiveTranscript } from "@/lib/audio/use-live-transcript";
 import { validateDiagnosisWav } from "@/lib/media-validation";
 import { ustaadApi, UstaadApiError } from "@/lib/api/client";
 import type { BillConfirmResponse, BillExtractionResponse, BillItem } from "@/lib/api/contracts";
-import { demoBillExtraction, demoConfirmBill } from "@/lib/api/billing-demo";
+import { demoBillExtraction, demoWorkshopBillExtraction, demoAmitBillExtraction, demoImranBillExtraction, demoConfirmBill } from "@/lib/api/billing-demo";
 
 type EditableBillItem = BillItem & { id: string };
 type RecentBill = {
@@ -55,7 +55,7 @@ function isRecentBill(value: unknown): value is RecentBill {
     typeof item.demoMode === "boolean" && (item.confirmed === null || typeof item.confirmed === "object");
 }
 
-export function BillingWorkflow({ active }: { active: boolean }) {
+export function BillingWorkflow({ active, initialCustomer = "", initialJobDescription = "", startRoleplay = false, roleplayVariant = "rajesh" }: { active: boolean; initialCustomer?: string; initialJobDescription?: string; startRoleplay?: boolean; roleplayVariant?: "rajesh" | "amit" | "imran" }) {
   const recorder = useAudioRecorder();
   const liveText = useLiveTranscript();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -78,7 +78,17 @@ export function BillingWorkflow({ active }: { active: boolean }) {
   const [notice, setNotice] = useState("");
   const [confirmedBill, setConfirmedBill] = useState<BillConfirmResponse | null>(null);
   const [demoMode, setDemoMode] = useState(false);
+  const [billingGuideStep, setBillingGuideStep] = useState(-1);
   const [recentBills, setRecentBills] = useState<RecentBill[]>([]);
+  const roleplayPrefillApplied = useRef(false);
+  useEffect(() => {
+    if (!active || !startRoleplay || roleplayPrefillApplied.current) return;
+    roleplayPrefillApplied.current = true;
+    setCustomer(initialCustomer);
+    setJobDescription(initialJobDescription);
+    setNotice(initialCustomer + "'s job context carried over from the selected scenario. Load the clearly labelled sample extraction to review illustrative items and labour.");
+    setBillingGuideStep(0);
+  }, [active, initialCustomer, initialJobDescription, startRoleplay]);
 
   const audioUrl = recorder.audioUrl || uploadedUrl;
   const recorderStatus = recorder.status;
@@ -220,8 +230,10 @@ export function BillingWorkflow({ active }: { active: boolean }) {
   };
 
   const runDemoExtraction = () => {
-    applyExtraction(demoBillExtraction, true);
-    setJobDescription(demoBillExtraction.transcript);
+    const sample = startRoleplay ? (roleplayVariant === "amit" ? demoAmitBillExtraction : roleplayVariant === "imran" ? demoImranBillExtraction : demoWorkshopBillExtraction) : demoBillExtraction;
+    applyExtraction(sample, true);
+    setJobDescription(sample.transcript);
+    if (startRoleplay) setBillingGuideStep(1);
   };
 
   const updateItem = (id: string, patch: Partial<BillItem>) => {
@@ -277,6 +289,7 @@ export function BillingWorkflow({ active }: { active: boolean }) {
           }, { timeoutMs: 30_000 });
       if (!isBillConfirmResponse(response)) throw new Error("The confirmation service returned an incomplete response. Please retry.");
       setConfirmedBill(response);
+      if (startRoleplay && response.total_complete) setBillingGuideStep(2);
       if (!response.total_complete || response.total === null) {
         setNotice("The bill is saved as incomplete. Confirm every missing price before sharing.");
       } else {
@@ -337,6 +350,8 @@ export function BillingWorkflow({ active }: { active: boolean }) {
 
   return (
     <div className="billing-layout billing-workflow">
+      {billingGuideStep >= 0 && <aside className="workshop-coach billing-workshop-coach" role="status" aria-live="polite"><div className="workshop-coach-top"><span>THE CUSTOMER JOURNEY / BILLING</span><span>{billingGuideStep+1}/3</span></div><div className="workshop-coach-progress"><i style={{width:((billingGuideStep+1)/3*100)+'%'}} /></div><h3>{({0:"Let's prepare the customer handoff.",1:"Review the parts and labour.",2:"A clear handoff for the customer."})[billingGuideStep]}</h3><p>{({0:"The selected customer's job context has carried into billing. Click Load demo extraction to populate clearly labelled sample items and labour. This is a demonstration fixture, not a live billing API response.",1:"Check each line item, quantity and price. This is where the mechanic stays in control. When the sample looks right, click Confirm totals.",2:"The sample bill is confirmed. You can inspect the WhatsApp preview, but no message has been sent and no real payment, invoice or repair record was created. This is a simulated customer handoff."})[billingGuideStep]}</p>{billingGuideStep===2 && <button type="button" className="workshop-primary workshop-coach-action" onClick={()=>setBillingGuideStep(-1)}>Finish the workshop demo <span>-&gt;</span></button>}<button type="button" className="workshop-coach-skip" onClick={()=>setBillingGuideStep(-1)}>Close guide</button></aside>}
+
       <section className="panel bill-capture">
         <div className="panel-heading"><div><span className="step-label">STEP 01 · DESCRIBE THE JOB</span><h2>What work did you do?</h2></div><span className="voice-badge"><span className="pulse" /> VOICE FIRST</span></div>
         <p className="panel-copy">Say the parts used and labour charged. Review the extracted lines before confirming.</p>
@@ -360,7 +375,7 @@ export function BillingWorkflow({ active }: { active: boolean }) {
         <div className="billing-upload-row">
           <input ref={fileInput} type="file" accept=".wav,audio/wav" hidden disabled={loading || confirming} onChange={(event) => void handleUpload(event.target.files?.[0])} />
           <button type="button" className="upload-audio" disabled={loading || confirming} onClick={() => fileInput.current?.click()}><span><strong>Upload WAV audio</strong><small>PCM16 · 16 kHz mono · Max 2 MB · 15 sec</small></span><b>Browse</b></button>
-          <button type="button" className="billing-demo-button" onClick={runDemoExtraction} disabled={loading || confirming}>Load demo extraction</button>
+          <button type="button" className={`billing-demo-button ${billingGuideStep === 0 ? "tour-target" : ""}`} onClick={runDemoExtraction} disabled={loading || confirming}>Load demo extraction</button>
         </div>
         <button type="button" className="primary-button full-button" onClick={() => void extractBill()} disabled={loading || confirming || recording}>{loading ? "Extracting items…" : "Extract items from voice note"} <span>→</span></button>
         <p className="billing-privacy">Typed notes are for review. The extraction endpoint analyses the audio recording. Audio is not stored by this frontend.</p>
@@ -401,10 +416,21 @@ export function BillingWorkflow({ active }: { active: boolean }) {
         {notice && <div className="billing-notice" role="status">{notice}</div>}
         <div className="billing-action-row">
           <button type="button" className="billing-secondary-button" onClick={saveDraft} disabled={items.length === 0 || loading || confirming}>Save draft</button>
-          <button type="button" className="primary-button" onClick={() => void confirmBill()} disabled={items.length === 0 || confirming || loading}>{confirming ? "Confirming…" : "Confirm totals"} <span>→</span></button>
+          <button type="button" className={`primary-button ${billingGuideStep === 1 ? "tour-target" : ""}`} onClick={() => void confirmBill()} disabled={items.length === 0 || confirming || loading}>{confirming ? "Confirming…" : "Confirm totals"} <span>→</span></button>
         </div>
         {confirmedBill?.whatsapp_text && (
           <a className="billing-whatsapp-link" href={`https://wa.me/?text=${encodeURIComponent(confirmedBill.whatsapp_text)}`} target="_blank" rel="noopener noreferrer">{demoMode ? "Open demo WhatsApp preview" : "Open WhatsApp bill"} <span>↗</span></a>
+        )}
+        {confirmedBill?.total_complete && demoMode && (
+          <section className="roleplay-finale" aria-live="polite">
+            <span className="roleplay-kicker">ROLEPLAY COMPLETE · SAMPLE DATA</span>
+            <h3>A clearer, safer customer handoff.</h3>
+            <div className="roleplay-finale-grid">
+              <div><small>BEFORE USTAAD</small><strong>Unclear fault</strong><p>Customer reports a burning smell. Mechanic needs to prioritise safety and explain the next check.</p></div>
+              <div><small>WITH USTAAD</small><strong>One connected workflow</strong><p>Job context carried over, illustrative items reviewed, a demo total calculated, and a WhatsApp preview prepared. No repair or payment is claimed.</p></div>
+            </div>
+            <p className="roleplay-finale-note">This is a simulated demonstration, not a real repair record, payment, backend bill or sent WhatsApp message.</p>
+          </section>
         )}
         <p className="no-gst">{demoMode ? "Demo confirmation is simulated; do not treat this as a production bill." : "No GST included · Share only after the backend confirms every price."}</p>
       </section>
