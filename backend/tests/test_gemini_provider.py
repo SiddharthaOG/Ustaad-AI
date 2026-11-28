@@ -229,6 +229,11 @@ def test_provider_synthesizes_wav_with_dedicated_tts_model(monkeypatch):
     assert models.calls == 1
     assert models.last_kwargs["model"] == "gemini-3.8-flash-lite-tts"
     assert models.last_kwargs["config"]["response_modalities"] == ["AUDIO"]
+    assert len(models.last_kwargs["contents"]) == 1
+    tts_prompt = models.last_kwargs["contents"][0]
+    assert "Speak ONLY the exact text between <SPEAK> and </SPEAK>" in tts_prompt
+    assert "<SPEAK>\nNamaste, Ustaad yahan hai.\n</SPEAK>" in tts_prompt
+    assert "Speak the following text exactly" not in tts_prompt
     with wave.open(io.BytesIO(audio), "rb") as wav:
         assert wav.getframerate() == 24_000
         assert wav.getnchannels() == 1
@@ -263,3 +268,33 @@ def test_provider_retries_transient_transport_error_then_succeeds():
 
     assert result.detected_code == "CH05"
     assert models.calls == 2
+
+
+@pytest.mark.parametrize(
+    ("language", "expected_language"),
+    [("en", "Indian English"), ("hinglish", "Hindi-English Hinglish")],
+)
+def test_tts_prompt_contains_only_delimited_summary_for_each_language(
+    monkeypatch, language, expected_language
+):
+    monkeypatch.setenv("GEMINI_TTS_MODEL", "gemini-3.8-flash-lite-tts")
+    pcm = b"\x00\x00" * 24
+    part = SimpleNamespace(
+        inline_data=SimpleNamespace(data=pcm, mime_type="audio/L16;rate=24000")
+    )
+    response = SimpleNamespace(
+        candidates=[SimpleNamespace(content=SimpleNamespace(parts=[part]))]
+    )
+    models = SequencedModels([response])
+    provider = GeminiProvider("test-key", "gemini-test", timeout_seconds=2)
+    provider._client = FakeClient(models)
+
+    asyncio.run(provider.synthesize_speech("LG CH05: Switch off power before inspection.", language))
+
+    contents = models.last_kwargs["contents"]
+    assert len(contents) == 1
+    prompt = contents[0]
+    assert expected_language in prompt
+    assert "Speak ONLY the exact text between <SPEAK> and </SPEAK>" in prompt
+    assert "<SPEAK>\nLG CH05: Switch off power before inspection.\n</SPEAK>" in prompt
+    assert "Do not speak these instructions or the delimiter tags" in prompt
