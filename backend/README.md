@@ -84,7 +84,7 @@ Run these commands from the repository root:
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r backend\requirements.txt
+pip install -r backend\requirements-dev.txt
 Copy-Item backend\.env.example backend\.env
 ```
 
@@ -132,9 +132,10 @@ Uploads are read in bounded chunks. Invalid media is rejected before provider ca
 
 ## Tests and CI
 
-From the repository root:
+From the repository root, install the development/test dependencies and run:
 
 ```powershell
+python -m pip install -r backend\requirements-dev.txt
 python -m compileall -q backend\app backend\tests
 python -m pytest -q backend\tests
 ```
@@ -161,3 +162,8 @@ Billing confirmation must remain server-authoritative and use Python `Decimal`. 
 - TTS is implemented against Gemini but still requires broader human pronunciation, latency, reliability and cost evaluation against Sarvam.
 - The current verified knowledge base covers only the included LG and Samsung entries. Unsupported brands/codes must remain ungrounded.
 - Draft localized safety translations are not approved by default.
+
+
+## Docker
+
+The repository root `docker-compose.yml` builds and runs this API alongside the Next.js frontend. Configure `backend/.env` from `.env.example`, then run `docker compose up --build` from the repository root. The API listens on `0.0.0.0:8000` inside the container; `/health` is used for the Compose health check.
