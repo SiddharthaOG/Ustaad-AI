@@ -17,6 +17,12 @@ type Props = {
 };
 
 export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak, speechLoading = false, speechError = "", speechAudioUrl = "", isDemo = false, safetyFirst = false, foodSafety = false }: Props) {
+};
+
+export function DiagnosisResult({
+  result, loading, error, hasSubmitted, warnings = [], onRetry, onSpeak,
+  speechLoading = false, speechError = "", speechAudioUrl = "",
+}: Props) {
   return (
     <section className={`panel result-panel ${isDemo ? "is-demo-result" : ""}`} aria-labelledby="diagnosis-heading" aria-live="polite">
       <div className="result-top">
@@ -117,6 +123,21 @@ export function DiagnosisResult({ result, loading, error, hasSubmitted, warnings
               {onSpeak && <button type="button" onClick={onSpeak} disabled={speechLoading}>{speechLoading ? "Preparing audio..." : speechAudioUrl ? "Generate again" : "Listen"} <span>Play</span></button>}
               {speechError && <p className="speech-error" role="alert">{speechError}</p>}
               {speechAudioUrl && <audio className="speech-player" controls autoPlay preload="auto" src={speechAudioUrl}>Audio playback is not supported by this browser.</audio>}
+              {onSpeak && (
+                <button type="button" onClick={onSpeak} disabled={speechLoading} aria-label="Generate spoken diagnosis">
+                  {speechLoading ? "Preparing audio..." : speechAudioUrl ? "Generate again" : "Listen"}
+                  <span aria-hidden="true">{speechLoading ? "..." : "Play"}</span>
+                </button>
+              )}
+              {speechError && <p className="speech-error" role="alert">{speechError}</p>}
+              {speechAudioUrl && (
+                <div className="speech-playback" role="group" aria-label="Spoken diagnosis playback">
+                  <span>Audio ready. Press play to listen</span>
+                  <audio className="speech-player" controls preload="metadata" src={speechAudioUrl}>
+                    Audio playback is not supported by this browser.
+                  </audio>
+                </div>
+              )}
             </div>
           )}
           <div className="diagnosis-meta">{isDemo ? "Sample scenario · illustrative reference · not a live diagnosis" : "Processed by " + result.provider + " · " + Math.max(0, Math.round(result.latency_ms)) + " ms"}</div>

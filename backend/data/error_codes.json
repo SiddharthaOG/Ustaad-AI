@@ -1,0 +1,577 @@
+{
+  "_readme": "Draft knowledge base for Ustaad AI (split AC). Only entries with verified=true should be sent to the model. verified=true means the text was read on an official manufacturer support page on checked_on, NOT that it was checked against your specific model manual. Spot-check before the demo. Do not add codes from aggregator sites.",
+  "category": "split_ac",
+  "entries": [
+    {
+      "id": "lg-ch05",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH05",
+        "E0",
+        "CH53"
+      ],
+      "meaning": "Communication problem between the indoor and outdoor units",
+      "probable_causes": [
+        "Temporary communication or power error",
+        "Faulty wiring or a loose connector",
+        "Problem with the main circuit board",
+        "If it appeared right after installation or relocation: loose connection or refrigerant leak from installation"
+      ],
+      "checks": [
+        "Power-cycle: unplug or switch off the circuit breaker, wait 5 minutes, restore power",
+        "If it appeared right after installation or relocation, contact the installer",
+        "If the error persists after the power cycle, service is needed"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        },
+        {
+          "title": "LG Sri Lanka - error code troubleshooting",
+          "url": "https://www.lg.com/lk/support/product-help/CT30012676-20155402848917",
+          "region": "Sri Lanka"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "lg-ch04",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH04",
+        "FL"
+      ],
+      "meaning": "Drainage problem: indoor unit drain malfunction, or condensate tank too full",
+      "probable_causes": [
+        "Indoor unit drain malfunction",
+        "Condensate tank too full",
+        "Window and portable types: more condensate on rainy or humid days"
+      ],
+      "checks": [
+        "Empty the condensate tank (window and portable types)",
+        "Power-cycle: unplug or switch off the circuit breaker, wait 5 minutes, restore power",
+        "If it happens often even on dry days, the unit needs inspection"
+      ],
+      "safety_tags": [
+        "water_drain"
+      ],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": "Display may show FL instead of CH04 depending on model and software."
+    },
+    {
+      "id": "lg-ch07",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG 2-in-1 and multi-unit systems",
+      "codes": [
+        "CH07"
+      ],
+      "meaning": "Operating-mode conflict between units (2-in-1 or multi-unit systems)",
+      "probable_causes": [
+        "Standing and wall-mount units set to different modes, for example one cooling and one heating"
+      ],
+      "checks": [
+        "Set all units to heating, or all to cooling/dehumidification (cooling and dehumidification cannot run together with heating)"
+      ],
+      "safety_tags": [],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "lg-ch38",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH38",
+        "F4"
+      ],
+      "meaning": "Low refrigerant (gas) level; unit stops to protect itself",
+      "probable_causes": [
+        "Refrigerant shortage",
+        "If it appeared after installation or relocation: likely a shortage from the installation"
+      ],
+      "checks": [
+        "If it appeared after installation or relocation, contact the installation technician",
+        "Power-cycle: unplug or switch off the circuit breaker, wait 5 minutes, restore power",
+        "If the error returns after the power cycle, contact LG support / a qualified technician"
+      ],
+      "safety_tags": [
+        "refrigerant"
+      ],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        },
+        {
+          "title": "LG Australia - guide to error codes",
+          "url": "https://www.lg.com/au/support/product-support/troubleshoot/help-library/cs-CT52001893-20155047719572/",
+          "region": "Australia"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "lg-ch61",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH61"
+      ],
+      "meaning": "Overheating protection: outdoor unit too hot in cooling mode, or indoor unit too hot in heating mode",
+      "probable_causes": [
+        "Cooling: outdoor unit heat cannot escape (poor ventilation, items piled around it)",
+        "Heating: poor air intake, often a clogged or dirty indoor filter"
+      ],
+      "checks": [
+        "Clear obstacles around the outdoor unit and improve ventilation (an air guide can help)",
+        "Clean the indoor unit filter",
+        "CH61 does not clear by itself: power-cycle to clear it"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": "LG states an air guide can lower outdoor unit room temperature by about 6-8 C (LG testing)."
+    },
+    {
+      "id": "lg-ch10",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH10",
+        "E6"
+      ],
+      "meaning": "Indoor unit fan problem",
+      "probable_causes": [
+        "Debris around the indoor fan components"
+      ],
+      "checks": [
+        "Check for debris around the indoor fan components and remove it",
+        "Power-cycle: unplug or switch off the circuit breaker, wait 5 minutes, restore power",
+        "If it persists, service is needed"
+      ],
+      "safety_tags": [
+        "electrical",
+        "moving_parts"
+      ],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": "On LG, E6 means indoor fan, which differs from other brands."
+    },
+    {
+      "id": "lg-ch67",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH67",
+        "EF"
+      ],
+      "meaning": "Outdoor unit fan problem",
+      "probable_causes": [
+        "Debris around the outdoor fan components"
+      ],
+      "checks": [
+        "Check for debris around the outdoor fan components and remove it",
+        "Power-cycle: unplug or switch off the circuit breaker, wait 5 minutes, restore power",
+        "If it persists, service is needed"
+      ],
+      "safety_tags": [
+        "electrical",
+        "moving_parts"
+      ],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "lg-ch54",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH54"
+      ],
+      "meaning": "Error that can follow a temporary power outage or electrical work",
+      "probable_causes": [
+        "Temporary power outage",
+        "Electrical work on the supply"
+      ],
+      "checks": [
+        "Reset the air conditioner circuit breaker",
+        "If the error persists, the unit needs inspection"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "LG India - [LG Air Conditioner] Guide to Error Codes",
+          "url": "https://www.lg.com/in/support/product-support/troubleshoot/help-library/cs-CT00022939-20154779550960/",
+          "region": "India"
+        },
+        {
+          "title": "LG Australia - guide to error codes",
+          "url": "https://www.lg.com/au/support/product-support/troubleshoot/help-library/cs-CT52001893-20155047719572/",
+          "region": "Australia"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "lg-ch66-93",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH66",
+        "CH90",
+        "CH91",
+        "CH92",
+        "CH93"
+      ],
+      "meaning": "Installation or test-run problem (incorrect wiring, incomplete test run, restricted refrigerant flow); CH66 and CH93 relate to indoor-outdoor communication or piping connection",
+      "probable_causes": [
+        "Incorrect wiring",
+        "Incomplete test run after installation",
+        "Restricted refrigerant flow during the test run"
+      ],
+      "checks": [
+        "If it appeared right after installation, contact the installation technician",
+        "Power-cycle: unplug or switch off the circuit breaker, wait 5 minutes, restore power"
+      ],
+      "safety_tags": [
+        "electrical",
+        "refrigerant"
+      ],
+      "sources": [
+        {
+          "title": "LG Africa - troubleshooting CH05, CH66, CH90-93 etc.",
+          "url": "https://www.lg.com/africa/support/product-help/CT20080061-20155402833925",
+          "region": "Africa"
+        },
+        {
+          "title": "LG Sri Lanka - error code troubleshooting",
+          "url": "https://www.lg.com/lk/support/product-help/CT30012676-20155402848917",
+          "region": "Sri Lanka"
+        }
+      ],
+      "verified": false,
+      "checked_on": "2026-11-22",
+      "notes": "Read from non-India LG pages. Confirm against the India page or your model manual before setting verified true."
+    },
+    {
+      "id": "lg-sensor-group",
+      "category": "split_ac",
+      "brand": "LG",
+      "model_series": "LG room/split ACs; codes differ by model",
+      "codes": [
+        "CH01",
+        "CH02",
+        "CH06",
+        "CH12",
+        "CH41",
+        "CH42",
+        "CH43",
+        "CH44",
+        "CH45",
+        "CH46",
+        "CH47",
+        "CH48",
+        "E1",
+        "E2",
+        "E3",
+        "E7",
+        "E8",
+        "F2",
+        "F3"
+      ],
+      "meaning": "Sensor-related problem (LG groups these codes together)",
+      "probable_causes": [
+        "Sensor fault or temporary power issue"
+      ],
+      "checks": [
+        "Reset the air conditioner (power-cycle)",
+        "If the code returns, stop using the unit and get service"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "LG East Africa - sensor and compressor error codes",
+          "url": "https://www.lg.com/eastafrica/support/product-help/CT20279054-20155399529373",
+          "region": "East Africa"
+        }
+      ],
+      "verified": false,
+      "checked_on": "2026-11-22",
+      "notes": "Group entry from a non-India page. Individual meanings per code are not given; do not let the model invent them."
+    },
+    {
+      "id": "samsung-21",
+      "category": "split_ac",
+      "brand": "Samsung",
+      "model_series": "Samsung split ACs; first letter E or C depends on model year",
+      "codes": [
+        "C1 / 21 (blinking in loop)",
+        "E1 / 21"
+      ],
+      "meaning": "Defective room temperature sensor",
+      "probable_causes": [
+        "Room temperature sensor shorted or defective"
+      ],
+      "checks": [
+        "Needs an authorized repair technician (per Samsung India)"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "Samsung India - How to solve error codes on your Samsung indoor air conditioner",
+          "url": "https://www.samsung.com/in/support/home-appliances/error-codes-on-your-samsung-indoor-air-conditioner/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "samsung-22",
+      "category": "split_ac",
+      "brand": "Samsung",
+      "model_series": "Samsung split ACs; first letter E or C depends on model year",
+      "codes": [
+        "C1 / 22 (blinking in loop)",
+        "E1 / 22"
+      ],
+      "meaning": "Defective heat exchanger temperature sensor",
+      "probable_causes": [
+        "Heat exchanger temperature sensor defective"
+      ],
+      "checks": [
+        "Needs an authorized repair technician (per Samsung India)"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "Samsung India - How to solve error codes on your Samsung indoor air conditioner",
+          "url": "https://www.samsung.com/in/support/home-appliances/error-codes-on-your-samsung-indoor-air-conditioner/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "samsung-54",
+      "category": "split_ac",
+      "brand": "Samsung",
+      "model_series": "Samsung split ACs; first letter E or C depends on model year",
+      "codes": [
+        "C1 / 54 (blinking in loop)",
+        "E1 / 54"
+      ],
+      "meaning": "Fan is not rotating",
+      "probable_causes": [
+        "Indoor fan not rotating"
+      ],
+      "checks": [
+        "Needs an authorized repair technician (per Samsung India)"
+      ],
+      "safety_tags": [
+        "electrical",
+        "moving_parts"
+      ],
+      "sources": [
+        {
+          "title": "Samsung India - How to solve error codes on your Samsung indoor air conditioner",
+          "url": "https://www.samsung.com/in/support/home-appliances/error-codes-on-your-samsung-indoor-air-conditioner/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "samsung-63",
+      "category": "split_ac",
+      "brand": "Samsung",
+      "model_series": "Samsung split ACs; first letter E or C depends on model year",
+      "codes": [
+        "C1 / 63 (blinking in loop)",
+        "E1 / 63"
+      ],
+      "meaning": "Incorrect or deleted data in the EEPROM of the main control board",
+      "probable_causes": [
+        "EEPROM data incorrect or deleted"
+      ],
+      "checks": [
+        "Needs an authorized repair technician (per Samsung India)"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "Samsung India - How to solve error codes on your Samsung indoor air conditioner",
+          "url": "https://www.samsung.com/in/support/home-appliances/error-codes-on-your-samsung-indoor-air-conditioner/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "samsung-c154",
+      "category": "split_ac",
+      "brand": "Samsung",
+      "model_series": "Samsung split ACs; first letter E or C depends on model year",
+      "codes": [
+        "C154",
+        "E154"
+      ],
+      "meaning": "Indoor fan motor entered protection mode",
+      "probable_causes": [
+        "Intermittent: input voltage above the normal range (overload voltage protection around 290-310 V); recovers once voltage is back below about 290 V",
+        "Continuous (returns within 10 seconds of restart): defective fan motor or printed board assembly (PBA)"
+      ],
+      "checks": [
+        "Turn the AC off, wait a few seconds, turn it on, and watch whether C154 returns within 10 seconds",
+        "If it does not return: temporary voltage surge",
+        "If it repeats immediately: fan motor or PBA may be defective, get Samsung service",
+        "A voltage stabilizer can help where supply is unstable"
+      ],
+      "safety_tags": [
+        "electrical",
+        "high_voltage"
+      ],
+      "sources": [
+        {
+          "title": "Samsung India - How to solve error codes on your Samsung indoor air conditioner",
+          "url": "https://www.samsung.com/in/support/home-appliances/error-codes-on-your-samsung-indoor-air-conditioner/",
+          "region": "India"
+        }
+      ],
+      "verified": true,
+      "checked_on": "2026-11-22",
+      "notes": ""
+    },
+    {
+      "id": "samsung-e101",
+      "category": "split_ac",
+      "brand": "Samsung",
+      "model_series": "Samsung split ACs; first letter E or C depends on model year",
+      "codes": [
+        "E101",
+        "E102",
+        "C101"
+      ],
+      "meaning": "Indoor-outdoor communication error",
+      "probable_causes": [
+        "Unstable indoor-outdoor communication",
+        "Power to the indoor or outdoor unit cut off"
+      ],
+      "checks": [
+        "Check the signal cable between the indoor and outdoor units",
+        "Check the power supply to both units"
+      ],
+      "safety_tags": [
+        "electrical"
+      ],
+      "sources": [
+        {
+          "title": "Samsung Korea service page (E101/C101/EA/E201)",
+          "url": "https://www.samsungsvc.co.kr/solution/33444",
+          "region": "Korea"
+        },
+        {
+          "title": "Samsung Thailand - symptom analysis guide",
+          "url": "https://ushl.samsung.com/th/support/home-appliances/-guide-to-analyze-the-symptoms-of-air-conditioner-defects",
+          "region": "Thailand"
+        }
+      ],
+      "verified": false,
+      "checked_on": "2026-11-22",
+      "notes": "Not on the Samsung India page. Confirm for your Indian model before setting verified true."
+    }
+  ],
+  "excluded_candidates": [
+    {
+      "brand": "Voltas",
+      "code": "E6",
+      "status": "excluded from KB: no official Voltas source found; sources conflict",
+      "conflicting_claims": [
+        "Indoor-outdoor communication fault (acerrorcode.com, republicworld.com, digirake)",
+        "Input voltage outside operating range, shown as E6 or E5 depending on model (vsctimes.com)",
+        "EEPROM error of the indoor unit (acerrorcode.com, different model table)"
+      ],
+      "action": "Do not use Voltas E6 as the demo example unless you confirm it in the manual of the exact model. Use LG CH05 or Samsung C154 instead."
+    }
+  ]
+}

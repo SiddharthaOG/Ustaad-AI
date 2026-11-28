@@ -1,0 +1,48 @@
+{
+  "_readme": "DRAFT safety strings for the deterministic safety layer. Written by the AI assistant; must be reviewed and corrected by the owner (and ideally a technician) before use. The model may add warnings but never remove these. Tags come from safety_tags in error_codes.json.",
+  "order": [
+    "general",
+    "electrical",
+    "high_voltage",
+    "refrigerant",
+    "moving_parts",
+    "water_drain"
+  ],
+  "strings": {
+    "general": {
+      "en": "Switch off the power before you start. If you are unsure, stop and ask a supervisor or the service centre.",
+      "hi": "काम शुरू करने से पहले बिजली बंद करें। अगर शक हो तो काम रोकें और सुपरवाइज़र या सर्विस सेंटर से पूछें।",
+      "hinglish": "Kaam shuru karne se pehle bijli band karein. Agar shak ho to kaam rokein aur supervisor ya service centre se poochhein."
+    },
+    "electrical": {
+      "en": "Switch off the main MCB before opening any panel or touching wiring.",
+      "hi": "कोई भी पैनल खोलने या तार छूने से पहले मुख्य MCB बंद करें।",
+      "hinglish": "Koi bhi panel kholne ya taar chhune se pehle main MCB band karein."
+    },
+    "high_voltage": {
+      "en": "Capacitors can hold charge even after the power is off. Discharge them safely before touching.",
+      "hi": "बिजली बंद होने के बाद भी कैपेसिटर में चार्ज बचा रह सकता है। छूने से पहले उसे सुरक्षित तरीके से डिस्चार्ज करें।",
+      "hinglish": "Bijli band hone ke baad bhi capacitor me charge bacha reh sakta hai. Chhune se pehle use surakshit tareeke se discharge karein."
+    },
+    "refrigerant": {
+      "en": "Opening refrigerant lines or charging gas is work for a trained technician only. Protect your eyes and hands.",
+      "hi": "रेफ्रिजरेंट लाइन खोलना या गैस भरना सिर्फ प्रशिक्षित तकनीशियन का काम है। आँखों और हाथों की सुरक्षा रखें।",
+      "hinglish": "Refrigerant line kholna ya gas bharna sirf trained technician ka kaam hai. Aankhon aur haathon ki suraksha rakhein."
+    },
+    "moving_parts": {
+      "en": "Switch the unit off and let the fan stop completely before putting your hand near it.",
+      "hi": "पंखे के पास हाथ ले जाने से पहले यूनिट बंद करें और पंखे को पूरी तरह रुकने दें।",
+      "hinglish": "Pankhe ke paas haath le jaane se pehle unit band karein aur pankhe ko poori tarah rukne dein."
+    },
+    "water_drain": {
+      "en": "Keep away from sockets and electrical connections that may be wet.",
+      "hi": "गीले सॉकेट और बिजली के कनेक्शन से दूर रहें।",
+      "hinglish": "Geele socket aur bijli ke connection se door rahein."
+    }
+  },
+  "not_grounded_notice": {
+    "en": "This code is not in my database. These are general low-risk checks only.",
+    "hi": "यह कोड मेरे डेटाबेस में नहीं है। ये सिर्फ़ सामान्य और कम जोखिम वाली जाँचें हैं।",
+    "hinglish": "Yeh code mere database me nahi hai. Yeh sirf general aur kam jokhim wali jaanch hain."
+  }
+}

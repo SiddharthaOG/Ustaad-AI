@@ -11,6 +11,8 @@ import { ustaadApi, UstaadApiError } from "@/lib/api/client";
 import type { DiagnosisResponse, SupportedLanguage } from "@/lib/api/contracts";
 import { validateDiagnosisImage, validateDiagnosisWav } from "@/lib/media-validation";
 import { normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
+import { diagnosisDemoScenarios, type DiagnosisDemoScenario } from "@/lib/api/diagnosis-scenarios";
+import { buildDiagnosisNarration, normalizeDiagnosisResponse } from "@/lib/api/diagnosis-response";
 import { DiagnosisResult } from "./diagnosis-result";
 import { BillingWorkflow } from "./billing-workflow";
 
@@ -57,8 +59,17 @@ export default function Home() {
   const diagnosisAbort = useRef<AbortController | null>(null);
   const diagnosisSubmitting = useRef(false);
   const speechSubmitting = useRef(false);
+  const speechRequestId = useRef(0);
   const diagnosisSubmissionId = useRef(0);
 
+
+  const invalidateSpeech = () => {
+    speechRequestId.current += 1;
+    speechSubmitting.current = false;
+    setSpeechLoading(false);
+    setSpeechAudioUrl("");
+    setSpeechError("");
+  };
 
   const audioUrl = recordedAudioUrl || uploadedAudioUrl;
   const scenario = SCENARIOS[selectedScenario];
@@ -80,6 +91,7 @@ export default function Home() {
   useEffect(() => () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); }, [photoPreviewUrl]);
   useEffect(() => () => { if (speechAudioUrl) URL.revokeObjectURL(speechAudioUrl); }, [speechAudioUrl]);
   useEffect(() => () => { diagnosisAbort.current?.abort(); }, []);
+  useEffect(() => () => { demoRunId.current += 1; diagnosisAbort.current?.abort(); }, []);
 
   const cancelDiagnosisRequest = () => {
     diagnosisSubmissionId.current += 1;
@@ -99,6 +111,8 @@ export default function Home() {
     setAudioName("");
     setAudioValidationError("");
     setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null);
+    invalidateSpeech();
+    setDiagnosis(null);
     setDiagnosisWarnings([]);
     setDiagnosisError("");
     setDiagnosisSubmitted(false);
@@ -109,12 +123,14 @@ export default function Home() {
   const clearAudio = () => {
     cancelDiagnosisRequest();
     liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    liveTranscript.stop(); clearRecording(); liveTranscript.clear(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setAudioValidationError(""); invalidateSpeech(); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (audioInput.current) audioInput.current.value = "";
   };
   const handleAudioFile = async (file?: File) => {
     if (!file) return;
     cancelDiagnosisRequest();
     liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    liveTranscript.stop(); clearRecording(); setUploadedAudioUrl(""); setUploadedAudioFile(null); setAudioName(""); invalidateSpeech(); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     const validation = await validateDiagnosisWav(file);
     if (!validation.valid) { setAudioName(""); setAudioValidationError(validation.message); if (audioInput.current) audioInput.current.value = ""; return; }
     setUploadedAudioUrl(URL.createObjectURL(validation.file)); setUploadedAudioFile(validation.file); setAudioName(validation.file.name); setAudioValidationError("");
@@ -132,6 +148,7 @@ export default function Home() {
     if (!audio) {
       setDiagnosisError("Record a voice note or upload an audio clip before analysing.");
       setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null);
+      invalidateSpeech(); setDiagnosis(null);
       setDiagnosisSubmitted(false);
       diagnosisSubmitting.current = false;
       return;
@@ -150,6 +167,7 @@ export default function Home() {
     if (!audioValidation.valid) {
       setDiagnosisError(audioValidation.message);
       setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null);
+      invalidateSpeech(); setDiagnosis(null);
       setDiagnosisSubmitted(false);
       diagnosisSubmitting.current = false;
       return;
@@ -161,6 +179,8 @@ export default function Home() {
     setDiagnosisIsDemo(false);
     setDiagnosisError("");
     setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null);
+    invalidateSpeech();
+    setDiagnosis(null);
     setDiagnosisSubmitted(true);
     try {
       const lang: SupportedLanguage = transcriptLanguage === "hi-IN" ? "hi" : "en";
@@ -190,6 +210,11 @@ export default function Home() {
 
   const speakDiagnosis = async () => {
     if (!diagnosis?.spoken_summary || speechSubmitting.current) return;
+    if (!diagnosis || speechSubmitting.current) return;
+    const requestId = ++speechRequestId.current;
+    const narration = buildDiagnosisNarration(diagnosis);
+    if (!narration.trim()) return;
+
     speechSubmitting.current = true;
     setSpeechLoading(true);
     setSpeechError("");
@@ -200,6 +225,17 @@ export default function Home() {
       }, { timeoutMs: 60_000 });
       setSpeechAudioUrl(URL.createObjectURL(audio));
     } catch (error) {
+      const audio = await ustaadApi.speak(
+        { text: narration, lang: transcriptLanguage === "hi-IN" ? "hinglish" : "en" },
+        { timeoutMs: 60_000 },
+      );
+      if (!audio.size || !audio.type.startsWith("audio/")) {
+        throw new Error("Ustaad returned an invalid audio response. Please try again.");
+      }
+      if (requestId !== speechRequestId.current) return;
+      setSpeechAudioUrl(URL.createObjectURL(audio));
+    } catch (error) {
+      if (requestId !== speechRequestId.current) return;
       setSpeechError(
         error instanceof UstaadApiError
           ? error.message
@@ -208,6 +244,10 @@ export default function Home() {
     } finally {
       speechSubmitting.current = false;
       setSpeechLoading(false);
+      if (requestId === speechRequestId.current) {
+        speechSubmitting.current = false;
+        setSpeechLoading(false);
+      }
     }
   };
 
@@ -216,6 +256,8 @@ export default function Home() {
     clearAudio();
     setPhotoFile(null); setPhotoName(""); setPhotoValidationError(""); setPhotoPreviewUrl("");
     setSpeechAudioUrl(""); setSpeechError(""); setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
+    invalidateSpeech();
+    setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisError(""); setDiagnosisSubmitted(false);
     if (photoInput.current) photoInput.current.value = "";
   };
 
@@ -246,6 +288,26 @@ export default function Home() {
     setRoleplayRunId((current) => current + 1);
     setBillingContext({ customer: scenario.customer, jobDescription: scenario.job });
     setMode("billing");
+  const runDiagnosisDemo = async () => {
+    cancelDiagnosisRequest();
+    const runId = ++demoRunId.current;
+    const scenario = diagnosisDemoScenarios[demoScenario];
+    invalidateSpeech();
+    setDiagnosis(null); setDiagnosisWarnings([]); setDiagnosisSubmitted(true); setDiagnosisError("");
+    if (scenario.error) {
+      if (demoScenario === "timeout") {
+        setDiagnosisLoading(true);
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        if (demoRunId.current !== runId) return;
+        setDiagnosisLoading(false);
+      }
+      setDiagnosisError(scenario.error);
+      return;
+    }
+    if (scenario.result) {
+      const normalized = normalizeDiagnosisResponse(scenario.result);
+      setDiagnosis(normalized.result); setDiagnosisWarnings(normalized.warnings);
+    }
   };
 
   return (
@@ -316,6 +378,18 @@ export default function Home() {
 
                 <DiagnosisResult result={diagnosis} loading={diagnosisLoading} error={diagnosisError} hasSubmitted={diagnosisSubmitted} warnings={diagnosisWarnings} onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined} onSpeak={selectedScenario==="amit"?undefined:()=>void speakDiagnosis()} speechLoading={speechLoading} speechError={speechError} speechAudioUrl={speechAudioUrl} isDemo={diagnosisIsDemo} safetyFirst={selectedScenario==="amit"} foodSafety={selectedScenario==="imran"} />
                 {diagnosis && workshopTourStep === 8 && <div className="roleplay-result-actions"><span>Live diagnosis response - review before acting</span><button type="button" onClick={() => { setWorkshopTourStep(-1); continueToBilling(); }}>Continue {scenario.customer}'s job to billing <span></span></button></div>}
+                <DiagnosisResult
+                  result={diagnosis}
+                  loading={diagnosisLoading}
+                  error={diagnosisError}
+                  hasSubmitted={diagnosisSubmitted}
+                  warnings={diagnosisWarnings}
+                  onRetry={(audioBlob || uploadedAudioFile) ? () => void analyseDiagnosis() : undefined}
+                  onSpeak={() => void speakDiagnosis()}
+                  speechLoading={speechLoading}
+                  speechError={speechError}
+                  speechAudioUrl={speechAudioUrl}
+                />
               </div>
 
 
